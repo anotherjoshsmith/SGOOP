@@ -9,52 +9,8 @@ The original method was published by Tiwary and Berne, PNAS 2016, 113, 2839.
 Author: Zachary Smith                   zsmith7@terpmail.umd.edu
 Original Algorithm: Pratyush Tiwary     ptiwary@umd.edu 
 Contributor: Pablo Bravo Collado        ptbravo@uc.cl"""
-
-import os.path as op
-
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.spatial import distance_matrix
-
-
-# TODO: SGOOP container class...
-class Sgoop:
-    def __init__(self, colvar, rc_bin=20, wells=2, d=1, SG=[], RC=[], P=[], SEE=[], SEV=[]):
-        pass
-
-
-def main():
-    data_dir = op.join(op.dirname(__file__), 'data')
-
-    """User Defined Variables"""
-    in_file = op.join(data_dir, 'trimmed.COLVAR')  # Input file
-    rc_bin = 20  # Bins over RC
-    wells = 2  # Expected number of wells with barriers > kT
-    d = 1  # Distance between indexes for transition <- TODO: ask what this is. will it ever be anything but 1?
-    # prob_cutoff = 1e-5  # Minimum nonzero probability
-
-    """Auxiliary Variables"""
-    SG = []  # List of Spectral Gaps
-    RC = []  # List of Reaction Coordinates
-    P = []  # List of probabilites on RC
-    SEE = []  # SGOOP Eigen exp
-    SEV = []  # SGOOP Eigen values
-    # SEVE = []  # SGOOP Eigen vectors
-
-    """Load MD File"""
-    data_array = np.loadtxt(in_file)[:, :]
-
-    # ##### PRACTICE SCRIPT
-    thetas = np.linspace(0, 180, num=100)
-    spectral_gap = np.zeros_like(thetas)
-
-    for idx, theta in enumerate(thetas):
-        rc = np.array([np.sin(theta), np.cos(theta)])
-        spectral_gap[idx] = rc_eval(rc, data_array, rc_bin, wells,
-                                    d, RC, P, SEE, SEV, SG)
-
-    best_plot(data_array, RC, SG)
-    plt.show()
 
 
 def density_estimation(x, grid, bandwidth=0.02):
@@ -68,32 +24,98 @@ def density_estimation(x, grid, bandwidth=0.02):
         dists = x - pt
         prefactor = np.power(2 * np.pi * np.power(bandwidth, 2.), (- d / 2.))
         gaussians = prefactor * (np.exp(-np.power(dists, 2.)
-                                 / (2 * np.power(bandwidth, 2.))))
+                                        / (2 * np.power(bandwidth, 2.))))
 
         pdf[idx] = np.sum(gaussians)
 
-    return pdf
+    return pdf / pdf.sum()
 
 
-def md_prob(rc, data_array, rc_bin):
+def md_prob(rc, colvar, rc_bin, **storage_dict):
     # Calculates probability along a given RC
+    data_array = colvar.values
     proj = np.sum(data_array * rc, axis=1)
 
-    rc_min = proj.min()
-    rc_max = proj.max()
-    binned = (proj - rc_min) / (rc_max - rc_min) * (rc_bin - 1)
-    binned = np.array(binned).astype(int)
+    binned = ((proj - proj.min()) / (np.ptp(proj))  # normalize
+              * (rc_bin - 1))  # multiply by number of bins
+    binned = binned.astype(int)
+
+    # prob_0 = np.zeros(rc_bin)
+    # for point in binned:
+    #     prob_0[point] += 1
+    # grid_0 = np.linspace(proj.min() - 3 * proj.std(),
+    #                      proj.max() + 3 * proj.std(),
+    #                      num=rc_bin)
 
     # get probability w/ KDE
-    m = proj.shape[0] // np.sqrt(proj.shape[0])
-
+    # This method is much slower, but also much more accurate.
+    m = rc_bin
+    # m = proj.shape[0] // np.sqrt(proj.shape[0])
     grid = np.linspace(proj.min() - 3 * proj.std(),
                        proj.max() + 3 * proj.std(),
                        num=m)
-
     prob = density_estimation(proj, grid, bandwidth=0.02)
 
-    return prob / prob.sum(), binned  # Normalize
+    if rc[0] == np.sin(0):
+        plt.plot(grid, prob, label='KDE')
+        # plt.plot(grid_0, prob_0 / prob_0.sum(), label='histogram')
+        plt.legend()
+        plt.show()
+
+    if storage_dict['prob_list'] is not None:
+        storage_dict['prob_list'].append(prob)
+
+    return prob, binned  # Normalize
+
+
+def mu_factor(binned, p, d, rc_bin):
+    # Calculates the prefactor on SGOOP for a given RC
+    # Returns the mu factor associated with the RC
+    # NOTE: mu factor depends on the choice of RC!
+    # <N>, number of neighbouring transitions on each RC
+    J = 0
+    N_mean = 0
+    for I in binned:
+        N_mean += (np.abs(I - J) <= d) * 1
+        J = np.copy(I)
+    N_mean = N_mean / len(binned)
+
+
+    # TODO: get rid of double-loop
+    D = 0
+    for j in range(rc_bin):
+        for i in range(rc_bin):
+            if (np.abs(i - j) <= d) and (i != j):  # only count if we're neighbors?
+                D += np.sqrt(p[j] * p[i])
+    #
+    # this solution depends on d = 1
+    # D = 0
+    # for idx in range(rc_bin):
+    #     D += 2 * np.sqrt(p[idx] * p[idx - 1])
+    MU = N_mean / D
+    return MU
+
+
+def transmat(MU, p, d, rc_bin):
+    # Generates transition matrix
+    S = np.zeros([rc_bin, rc_bin])
+    # Non diagonal terms
+    # IFF the loop is necessary, we should build S and calculate D (aka MU) at the same time
+    for j in range(rc_bin):
+        for i in range(rc_bin):
+            if (p[i] != 0) and (np.abs(i - j) <= d and (i != j)):
+                S[i, j] = MU * np.sqrt(p[j] / p[i])
+
+    """...we can now calculate the eigenvalues of the
+    full transition matrix K, where Knm = −kmn for 
+    m != n and Kmm = sum_m!=n(kmn)."""
+    for i in range(rc_bin):
+        # negate diagonal terms, which should be positive
+        # after the next operation
+        S[i, i] = -S.sum(1)[i]
+    S = -np.transpose(S)  # negate and transpose
+
+    return S
 
 
 def eigeneval(matrix):
@@ -106,48 +128,10 @@ def eigeneval(matrix):
     return eigenValues, eigenExp, eigenVectors
 
 
-def mu_factor(binned, p, d, rc_bin):
-    # Calculates the prefactor on SGOOP for a given RC
-    # Returns the mu factor associated with the RC
-    # NOTE: mu factor depends on the choice of RC!
-    # <N>, number of neighbouring transitions on each RC
-    J = 0
-    N_mean = 0
-    D = 0
-    for I in binned:
-        N_mean += (np.abs(I - J) <= d) * 1
-        J = np.copy(I)
-    N_mean = N_mean / len(binned)
-
-    # Denominator
-    for j in range(rc_bin):
-        for i in range(rc_bin):
-            if (np.abs(i - j) <= d) and (i != j):
-                D += np.sqrt(p[j] * p[i])
-    MU = N_mean / D
-    return MU
-
-
-def transmat(MU, p, d, rc_bin):
-    # Generates transition matrix
-    S = np.zeros([rc_bin, rc_bin])
-    # Non diagonal terms
-    for j in range(rc_bin):
-        for i in range(rc_bin):
-            if (p[i] != 0) and (np.abs(i - j) <= d and (i != j)):
-                S[i, j] = MU * np.sqrt(p[j] / p[i])
-
-    for i in range(rc_bin):
-        S[i, i] = -S.sum(1)[i]  # Diagonal terms
-    S = -np.transpose(S)  # Tranpose and fix
-
-    return S
-
-
-def spectral(wells, SEE, SEV):
+def spectral(wells, eigen_values):
     # Calculates spectral gap for appropriate number of wells
-    SEE_pos = SEE[-1][SEV[-1] > -1e-10]  # Removing negative eigenvalues
-    SEE_pos = SEE_pos[SEE_pos > 0]  # Removing negative exponents
+    SEE_pos = np.exp(eigen_values)[(eigen_values > -1e-10)
+                                   & (np.exp(eigen_values) > 0)]  # Removing negative eigenvalues # TODO: ask why we remove negative eigenvalues?
     gaps = SEE_pos[:-1] - SEE_pos[1:]
     if np.shape(gaps)[0] >= wells:
         return gaps[wells - 1]
@@ -155,64 +139,89 @@ def spectral(wells, SEE, SEV):
         return 0
 
 
-def sgoop(p, binned, d, wells, rc_bin, SEV, SEE, SG):  # rc was never called
+def sgoop(p, binned, d, wells, rc_bin, **storage_dict):  # rc was never called
     # SGOOP for a given probability density on a given RC
     # Start here when using probability from an external source
     MU = mu_factor(binned, p, d, rc_bin)  # Calculated with MaxCal approach
 
     S = transmat(MU, p, d, rc_bin)  # Generating the transition matrix
 
-    sev, see, seve = eigeneval(S)  # Calculating eigenvalues and vectors for the transition matrix
-    SEV.append(sev)  # Recording values for later analysis
-    SEE.append(see)
-    # SEVE.append(seve)
+    eigen_values, see, seve = eigeneval(S)  # Calculating eigenvalues and vectors for the transition matrix
+    if storage_dict.get('eigen_value_list') is not None:
+        storage_dict['eigen_value_list'].append(eigen_values)
 
-    sg = spectral(wells, SEE, SEV)  # Calculating the spectral gap
-    SG.append(sg)
+    sg = spectral(wells, eigen_values)  # Calculating the spectral gap
+    if storage_dict.get('sg_list') is not None:
+        storage_dict['sg_list'].append(sg)
 
     return sg
 
 
-def best_plot(data_array, RC, SG):
-    # Displays the best RC for 2D data
-    best_rc = np.ceil(np.arccos(RC[np.argmax(SG)][0]) * 180 / np.pi)
-    plt.figure()
-    cmap = plt.cm.get_cmap("jet")
-    hist = np.histogram2d(data_array[:, 0], data_array[:, 1], 20)
-    hist = hist[0]
-    prob = hist / np.sum(hist)
-    potE = -np.ma.log(prob)
-    potE -= np.min(potE)
-    np.ma.set_fill_value(potE, np.max(potE))
-    plt.contourf(np.transpose(np.ma.filled(potE)), cmap=cmap)
+def best_plot(colvar, **storage_dict):
+    if not storage_dict.get('rc_list') or not storage_dict.get('sg_list'):
+        print('Ooops! Looks you forgot to store your Reaction Coordinates'
+              'or spectral gaps. Please try again, with storage dictionary.')
+        return
+    rc_list = storage_dict['rc_list']
+    sg_list = storage_dict['sg_list']
 
+    data_array = colvar.values
+    # Displays the best RC for 2D data
+    best_rc = np.ceil(np.arccos(rc_list[np.argmax(sg_list)][0]) * 180 / np.pi)
+    plt.figure()
+
+    x_data = data_array[:, 0]
+    y_data = data_array[:, 1]
+
+    hist, x_edges, y_edges = np.histogram2d(x_data, y_data, 20)
+    hist = hist.T
+    prob = hist / np.sum(hist)
+    energy = -np.log(prob)
+    energy -= np.min(energy)
+
+    # clip and center edges
+    dx = x_edges[1] - x_edges[0]
+    dy = y_edges[1] - y_edges[0]
+    x_edges = x_edges[:-1] + dx
+    y_edges = y_edges[:-1] + dy
+
+    # plot energy
+    plt.contourf(x_edges, y_edges, energy)
+    cbar = plt.colorbar()
+    # plt.clim(0, clim)
+    plt.set_cmap('viridis')
+    cbar.ax.set_ylabel('G [kT]')
+    # plot RC
+    origin = [
+        (x_data.max() + x_data.min()) / 2,
+        (y_data.max() + y_data.min()) / 2,
+    ]
     plt.title('Best RC = {0:.2f} Degrees'.format(best_rc))
-    origin = [10, 10]
     rcx = np.cos(np.pi * best_rc / 180)
     rcy = np.sin(np.pi * best_rc / 180)
     plt.quiver(*origin, rcx, rcy, scale=.1, color='grey');
     plt.quiver(*origin, -rcx, -rcy, scale=.1, color='grey');
 
 
-def rc_eval(rc, data_array, rc_bin, wells, d, RC, P, SEE, SEV, SG):
+def rc_eval(single_sgoop, **storage_lists):
     # Unbiased SGOOP on a given RC
     # Input type: array of weights
+
+    rc = single_sgoop.rc
+    colvar = single_sgoop.colvar
+    rc_bin = single_sgoop.rc_bin
+    wells = single_sgoop.wells
+    d = single_sgoop.d
 
     """Save RC for Calculations"""  # why store in list? ahh, maybe for plotting?
     # normalize reaction coordinate vector
     rc = rc / np.sqrt(np.sum(np.square(rc)))
-    RC.append(rc)
 
     """Probabilities and Index on RC"""
     # TODO: if biased, call biased prob (maybe write that within md_prob)
-    prob, binned = md_prob(rc, data_array, rc_bin)
-    P.append(prob)
+    prob, binned = md_prob(rc, colvar, rc_bin, **storage_lists)
 
     """Main SGOOP Method"""
-    sg = sgoop(prob, binned, d, wells, rc_bin, SEV, SEE, SG)
+    sg = sgoop(prob, binned, d, wells, rc_bin, **storage_lists)
 
     return sg
-
-
-if __name__ == '__main__':
-    main()
