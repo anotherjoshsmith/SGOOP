@@ -16,6 +16,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+# TODO: SGOOP container class...
+class Sgoop:
+    def __init__(self, colvar, rc_bin=20, wells=2, d=1, SG=[], RC=[], P=[], SEE=[], SEV=[]):
+        pass
+
+
 def main():
     data_dir = op.join(op.dirname(__file__), 'data')
 
@@ -23,7 +29,7 @@ def main():
     in_file = op.join(data_dir, 'trimmed.COLVAR')  # Input file
     rc_bin = 20  # Bins over RC
     wells = 2  # Expected number of wells with barriers > kT
-    d = 1  # Distance between indexes for transition
+    d = 1  # Distance between indexes for transition <- TODO: ask what this is. will it ever be anything but 1?
     # prob_cutoff = 1e-5  # Minimum nonzero probability
 
     """Auxiliary Variables"""
@@ -42,7 +48,7 @@ def main():
     spectral_gap = np.zeros_like(thetas)
 
     for idx, theta in enumerate(thetas):
-        rc = [np.sin(theta), np.cos(theta)]
+        rc = np.array([np.sin(theta), np.cos(theta)])
         spectral_gap[idx] = rc_eval(rc, data_array, rc_bin, wells,
                                     d, RC, P, SEE, SEV, SG)
 
@@ -50,38 +56,14 @@ def main():
     plt.show()
 
 
-def rei(SG, RC, P, SEE, SEV, SEVE):
-    # Reinitializes arrays for new runs
-    SG = []
-    RC = []
-    P = []
-    SEE = []
-    SEV = []
-    SEVE = []
-
-
-def normalize_rc(rc):
-    # Normalizes input RC
-    squares = 0
-    for i in rc:
-        squares += i ** 2
-    denom = np.sqrt(squares)
-    return np.array(rc) / denom
-
-
-def generate_rc(i):
-    # Generates a unit vector with angle pi*i
-    x = np.cos(np.pi * i)
-    y = np.sin(np.pi * i)
-    return (x, y)
-
-
 def md_prob(rc, data_array, rc_bin):
     # Calculates probability along a given RC
+    # TODO: vectorize projection
     proj = []
 
     for v in data_array:
         proj.append(np.dot(v, rc))
+
     rc_min = np.min(proj)
     rc_max = np.max(proj)
     binned = (proj - rc_min) / (rc_max - rc_min) * (rc_bin - 1)
@@ -93,24 +75,6 @@ def md_prob(rc, data_array, rc_bin):
         prob[point] += 1
 
     return prob / prob.sum(), binned  # Normalize
-
-
-def set_bins(data_array, rc, bins, rc_min, rc_max):
-    # Sets bins from an external source
-    rc_bin = bins
-    proj = np.dot(data_array, rc)
-    binned = (proj - rc_min) / (rc_max - rc_min) * (rc_bin - 1)
-    binned = np.array(binned).astype(int)  # mutating a global object...
-    # return binned  # <--- better
-
-
-def clean_whitespace(p, binned):
-    # Removes values of imported data that do not match MaxCal data
-    bmin = np.min(binned)
-    bmax = np.max(binned)
-    rc_bin = bmax - bmin + 1  # mutating a global object...
-    binned -= bmin
-    return p[bmin:bmax + 1]  # return p[bmin:bmax + 1], binned <--- better
 
 
 def eigeneval(matrix):
@@ -190,27 +154,6 @@ def sgoop(p, binned, d, wells, rc_bin, SEV, SEE, SG):  # rc was never called
     return sg
 
 
-def biased_prob(rc, old_rc, data_array, binned, rc_bin):
-    # Calculates probabilities while "forgetting" original RC
-    bias_prob = md_prob(old_rc)
-    bias_bin = binned
-
-    proj = []
-    for v in data_array:
-        proj.append(np.dot(v, rc))
-    rc_min = np.min(proj)
-    rc_max = np.max(proj)
-    binned = (proj - rc_min) / (rc_max - rc_min) * (rc_bin - 1)
-    binned = np.array(binned).astype(int)
-
-    prob = np.zeros(rc_bin)
-
-    for i in range(np.shape(binned)[0]):
-        prob[binned[i]] += 1 / bias_prob[bias_bin[i]]  # Dividing by RAVE-like weights
-
-    return prob / prob.sum()  # Normalize
-
-
 def best_plot(data_array, RC, SG):
     # Displays the best RC for 2D data
     best_rc = np.ceil(np.arccos(RC[np.argmax(SG)][0]) * 180 / np.pi)
@@ -236,34 +179,18 @@ def rc_eval(rc, data_array, rc_bin, wells, d, RC, P, SEE, SEV, SG):
     # Unbiased SGOOP on a given RC
     # Input type: array of weights
 
-    """Save RC for Calculations"""
-    rc = normalize_rc(rc)
+    """Save RC for Calculations"""  # why store in list? ahh, maybe for plotting?
+    # normalize reaction coordinate vector
+    rc = rc / np.sqrt(np.sum(np.square(rc)))
     RC.append(rc)
 
     """Probabilities and Index on RC"""
+    # TODO: if biased, call biased prob (maybe write that within md_prob)
     prob, binned = md_prob(rc, data_array, rc_bin)
     P.append(prob)
 
     """Main SGOOP Method"""
     sg = sgoop(prob, binned, d, wells, rc_bin, SEV, SEE, SG)
-
-    return sg
-
-
-def biased_eval(rc, bias_rc, RC, P):
-    # Biased SGOOP on a given RC with bias along a second RC
-    # Input type: array of weights, probability from original RC
-
-    """Save RC for Calculations"""
-    rc = normalize_rc(rc)
-    RC.append(rc)
-
-    """Probabilities and Index on RC"""
-    prob = biased_prob(rc, bias_rc)
-    P.append(prob)
-
-    """Main SGOOP Method"""
-    sg = sgoop(rc, prob)
 
     return sg
 
