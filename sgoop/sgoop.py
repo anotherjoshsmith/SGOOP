@@ -15,31 +15,43 @@ import os.path as op
 import numpy as np
 import matplotlib.pyplot as plt
 
-data_dir = op.join(op.dirname(__file__), 'data')
 
-"""User Defined Variables"""
-in_file = op.join(data_dir, 'max_cal.COLVAR')  # Input file
-nrc = 16  # Number of reaction coordinates
-rc_bin = 20  # Bins over RC  (rc_bin < x_bin)
-wells = 2  # Expected number of wells with barriers > kT
-d = 1  # Distance between indexes for transition
-prob_cutoff = 1e-5  # Minimum nonzero probability
+def main():
+    data_dir = op.join(op.dirname(__file__), 'data')
 
-"""Auxiliary Variables"""
-SG = []  # List of Spectral Gaps
-RC = []  # List of Reaction Coordinates
-P = []  # List of probabilites on RC
-SEE = []  # SGOOP Eigen exp
-SEV = []  # SGOOP Eigen values
-SEVE = []  # SGOOP Eigen vectors
+    """User Defined Variables"""
+    in_file = op.join(data_dir, 'trimmed.COLVAR')  # Input file
+    rc_bin = 20  # Bins over RC
+    wells = 2  # Expected number of wells with barriers > kT
+    d = 1  # Distance between indexes for transition
+    # prob_cutoff = 1e-5  # Minimum nonzero probability
 
-"""Load MD File"""
-data_array = np.loadtxt(in_file)[:, 1:]
+    """Auxiliary Variables"""
+    SG = []  # List of Spectral Gaps
+    RC = []  # List of Reaction Coordinates
+    P = []  # List of probabilites on RC
+    SEE = []  # SGOOP Eigen exp
+    SEV = []  # SGOOP Eigen values
+    # SEVE = []  # SGOOP Eigen vectors
+
+    """Load MD File"""
+    data_array = np.loadtxt(in_file)[:, :]
+
+    # ##### PRACTICE SCRIPT
+    thetas = np.linspace(0, 180, num=100)
+    spectral_gap = np.zeros_like(thetas)
+
+    for idx, theta in enumerate(thetas):
+        rc = [np.sin(theta), np.cos(theta)]
+        spectral_gap[idx] = rc_eval(rc, data_array, rc_bin, wells,
+                                    d, RC, P, SEE, SEV, SG)
+
+    best_plot(data_array, RC, SG)
+    plt.show()
 
 
-def rei():
+def rei(SG, RC, P, SEE, SEV, SEVE):
     # Reinitializes arrays for new runs
-    global SG, RC, P, SEE, SEV, SEVE
     SG = []
     RC = []
     P = []
@@ -64,9 +76,8 @@ def generate_rc(i):
     return (x, y)
 
 
-def md_prob(rc):
+def md_prob(rc, data_array, rc_bin):
     # Calculates probability along a given RC
-    global binned
     proj = []
 
     for v in data_array:
@@ -81,26 +92,25 @@ def md_prob(rc):
     for point in binned:
         prob[point] += 1
 
-    return prob / prob.sum()  # Normalize
+    return prob / prob.sum(), binned  # Normalize
 
 
-def set_bins(rc, bins, rc_min, rc_max):
+def set_bins(data_array, rc, bins, rc_min, rc_max):
     # Sets bins from an external source
-    global binned, rc_bin
     rc_bin = bins
     proj = np.dot(data_array, rc)
     binned = (proj - rc_min) / (rc_max - rc_min) * (rc_bin - 1)
-    binned = np.array(binned).astype(int)
+    binned = np.array(binned).astype(int)  # mutating a global object...
+    # return binned  # <--- better
 
 
-def clean_whitespace(p):
+def clean_whitespace(p, binned):
     # Removes values of imported data that do not match MaxCal data
-    global rc_bin, binned
     bmin = np.min(binned)
     bmax = np.max(binned)
-    rc_bin = bmax - bmin + 1
+    rc_bin = bmax - bmin + 1  # mutating a global object...
     binned -= bmin
-    return p[bmin:bmax + 1]
+    return p[bmin:bmax + 1]  # return p[bmin:bmax + 1], binned <--- better
 
 
 def eigeneval(matrix):
@@ -113,7 +123,7 @@ def eigeneval(matrix):
     return eigenValues, eigenExp, eigenVectors
 
 
-def mu_factor(binned, p):
+def mu_factor(binned, p, d, rc_bin):
     # Calculates the prefactor on SGOOP for a given RC
     # Returns the mu factor associated with the RC
     # NOTE: mu factor depends on the choice of RC!
@@ -135,7 +145,7 @@ def mu_factor(binned, p):
     return MU
 
 
-def transmat(MU, p):
+def transmat(MU, p, d, rc_bin):
     # Generates transition matrix
     S = np.zeros([rc_bin, rc_bin])
     # Non diagonal terms
@@ -151,7 +161,7 @@ def transmat(MU, p):
     return S
 
 
-def spectral():
+def spectral(wells, SEE, SEV):
     # Calculates spectral gap for appropriate number of wells
     SEE_pos = SEE[-1][SEV[-1] > -1e-10]  # Removing negative eigenvalues
     SEE_pos = SEE_pos[SEE_pos > 0]  # Removing negative exponents
@@ -162,27 +172,26 @@ def spectral():
         return 0
 
 
-def sgoop(rc, p):
+def sgoop(p, binned, d, wells, rc_bin, SEV, SEE, SG):  # rc was never called
     # SGOOP for a given probability density on a given RC
     # Start here when using probability from an external source
-    MU = mu_factor(binned, p)  # Calculated with MaxCal approach
+    MU = mu_factor(binned, p, d, rc_bin)  # Calculated with MaxCal approach
 
-    S = transmat(MU, p)  # Generating the transition matrix
+    S = transmat(MU, p, d, rc_bin)  # Generating the transition matrix
 
     sev, see, seve = eigeneval(S)  # Calculating eigenvalues and vectors for the transition matrix
     SEV.append(sev)  # Recording values for later analysis
     SEE.append(see)
-    SEVE.append(seve)
+    # SEVE.append(seve)
 
-    sg = spectral()  # Calculating the spectral gap
+    sg = spectral(wells, SEE, SEV)  # Calculating the spectral gap
     SG.append(sg)
 
     return sg
 
 
-def biased_prob(rc, old_rc):
+def biased_prob(rc, old_rc, data_array, binned, rc_bin):
     # Calculates probabilities while "forgetting" original RC
-    global binned
     bias_prob = md_prob(old_rc)
     bias_bin = binned
 
@@ -202,12 +211,12 @@ def biased_prob(rc, old_rc):
     return prob / prob.sum()  # Normalize
 
 
-def best_plot():
+def best_plot(data_array, RC, SG):
     # Displays the best RC for 2D data
     best_rc = np.ceil(np.arccos(RC[np.argmax(SG)][0]) * 180 / np.pi)
     plt.figure()
     cmap = plt.cm.get_cmap("jet")
-    hist = np.histogram2d(data_array[:, 0], data_array[:, 1], 100)
+    hist = np.histogram2d(data_array[:, 0], data_array[:, 1], 20)
     hist = hist[0]
     prob = hist / np.sum(hist)
     potE = -np.ma.log(prob)
@@ -216,14 +225,14 @@ def best_plot():
     plt.contourf(np.transpose(np.ma.filled(potE)), cmap=cmap)
 
     plt.title('Best RC = {0:.2f} Degrees'.format(best_rc))
-    origin = [50, 50]
+    origin = [10, 10]
     rcx = np.cos(np.pi * best_rc / 180)
     rcy = np.sin(np.pi * best_rc / 180)
     plt.quiver(*origin, rcx, rcy, scale=.1, color='grey');
     plt.quiver(*origin, -rcx, -rcy, scale=.1, color='grey');
 
 
-def rc_eval(rc):
+def rc_eval(rc, data_array, rc_bin, wells, d, RC, P, SEE, SEV, SG):
     # Unbiased SGOOP on a given RC
     # Input type: array of weights
 
@@ -232,16 +241,16 @@ def rc_eval(rc):
     RC.append(rc)
 
     """Probabilities and Index on RC"""
-    prob = md_prob(rc)
+    prob, binned = md_prob(rc, data_array, rc_bin)
     P.append(prob)
 
     """Main SGOOP Method"""
-    sg = sgoop(rc, prob)
+    sg = sgoop(prob, binned, d, wells, rc_bin, SEV, SEE, SG)
 
     return sg
 
 
-def biased_eval(rc, bias_rc):
+def biased_eval(rc, bias_rc, RC, P):
     # Biased SGOOP on a given RC with bias along a second RC
     # Input type: array of weights, probability from original RC
 
@@ -257,3 +266,7 @@ def biased_eval(rc, bias_rc):
     sg = sgoop(rc, prob)
 
     return sg
+
+
+if __name__ == '__main__':
+    main()
