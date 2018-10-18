@@ -105,15 +105,13 @@ def eigeneval(matrix):
     eigenValues, eigenVectors = np.linalg.eig(matrix)
     idx = eigenValues.argsort()  # Sorting by eigenvalues
     eigenValues = eigenValues[idx]  # Order eigenvalues
-    eigenVectors = eigenVectors[:, idx]  # Order eigenvectors
     eigenExp = np.exp(-eigenValues)  # Calculate exponentials
-    return eigenValues, eigenExp, eigenVectors
+    return eigenValues, eigenExp
 
 
-def spectral(wells, eigen_values):
-    # Calculates spectral gap for appropriate number of wells
-    SEE_pos = np.exp(eigen_values)[(eigen_values > -1e-10)
-                                   & (np.exp(eigen_values) > 0)]  # Removing negative eigenvalues # TODO: ask why we remove negative eigenvalues?
+def spectral(wells, eigen_exp, eigen_values):
+    SEE_pos = eigen_exp[(eigen_values > -1e-10)]  # Removing negative eigenvalues
+    SEE_pos = SEE_pos[SEE_pos > 0]  # Removing negative exponents
     gaps = SEE_pos[:-1] - SEE_pos[1:]
     if np.shape(gaps)[0] >= wells:
         return gaps[wells - 1]
@@ -128,11 +126,11 @@ def sgoop(p, binned, d, wells, rc_bin, **storage_dict):  # rc was never called
 
     S = transmat(MU, p, d, rc_bin)  # Generating the transition matrix
 
-    eigen_values, see, seve = eigeneval(S)  # Calculating eigenvalues and vectors for the transition matrix
+    eigen_values, eigen_exp = eigeneval(S)  # Calculating eigenvalues and vectors for the transition matrix
     if storage_dict.get('eigen_value_list') is not None:
         storage_dict['eigen_value_list'].append(eigen_values)
 
-    sg = spectral(wells, eigen_values)  # Calculating the spectral gap
+    sg = spectral(wells, eigen_exp, eigen_values)  # Calculating the spectral gap
     if storage_dict.get('sg_list') is not None:
         storage_dict['sg_list'].append(sg)
 
