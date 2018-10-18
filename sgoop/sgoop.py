@@ -14,6 +14,7 @@ import os.path as op
 
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.spatial import distance_matrix
 
 
 # TODO: SGOOP container class...
@@ -56,23 +57,41 @@ def main():
     plt.show()
 
 
+def density_estimation(x, grid, bandwidth=0.02):
+    # need to adapt to the 2D case (esp. for visualization)
+    d = 1
+    if len(x.shape) > 1:
+        d = x.shape[1]
+
+    pdf = np.zeros_like(grid)
+    for idx, pt in enumerate(grid):
+        dists = x - pt
+        prefactor = np.power(2 * np.pi * np.power(bandwidth, 2.), (- d / 2.))
+        gaussians = prefactor * (np.exp(-np.power(dists, 2.)
+                                 / (2 * np.power(bandwidth, 2.))))
+
+        pdf[idx] = np.sum(gaussians)
+
+    return pdf
+
+
 def md_prob(rc, data_array, rc_bin):
     # Calculates probability along a given RC
-    # TODO: vectorize projection
-    proj = []
+    proj = np.sum(data_array * rc, axis=1)
 
-    for v in data_array:
-        proj.append(np.dot(v, rc))
-
-    rc_min = np.min(proj)
-    rc_max = np.max(proj)
+    rc_min = proj.min()
+    rc_max = proj.max()
     binned = (proj - rc_min) / (rc_max - rc_min) * (rc_bin - 1)
     binned = np.array(binned).astype(int)
 
-    prob = np.zeros(rc_bin)
+    # get probability w/ KDE
+    m = proj.shape[0] // np.sqrt(proj.shape[0])
 
-    for point in binned:
-        prob[point] += 1
+    grid = np.linspace(proj.min() - 3 * proj.std(),
+                       proj.max() + 3 * proj.std(),
+                       num=m)
+
+    prob = density_estimation(proj, grid, bandwidth=0.02)
 
     return prob / prob.sum(), binned  # Normalize
 
