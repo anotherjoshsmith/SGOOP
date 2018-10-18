@@ -40,27 +40,13 @@ def md_prob(rc, colvar, rc_bin, **storage_dict):
               * (rc_bin - 1))  # multiply by number of bins
     binned = binned.astype(int)
 
-    # prob_0 = np.zeros(rc_bin)
-    # for point in binned:
-    #     prob_0[point] += 1
-    # grid_0 = np.linspace(proj.min() - 3 * proj.std(),
-    #                      proj.max() + 3 * proj.std(),
-    #                      num=rc_bin)
-
     # get probability w/ KDE
-    # This method is much slower, but also much more accurate.
+    # m = proj.shape[0] // np.sqrt(proj.shape[0])  <--- This method is much slower, but also much more accurate.
     m = rc_bin
-    # m = proj.shape[0] // np.sqrt(proj.shape[0])
     grid = np.linspace(proj.min() - 3 * proj.std(),
                        proj.max() + 3 * proj.std(),
                        num=m)
     prob = density_estimation(proj, grid, bandwidth=0.02)
-
-    if rc[0] == np.sin(0):
-        plt.plot(grid, prob, label='KDE')
-        # plt.plot(grid_0, prob_0 / prob_0.sum(), label='histogram')
-        plt.legend()
-        plt.show()
 
     if storage_dict['prob_list'] is not None:
         storage_dict['prob_list'].append(prob)
@@ -87,11 +73,7 @@ def mu_factor(binned, p, d, rc_bin):
         for i in range(rc_bin):
             if (np.abs(i - j) <= d) and (i != j):  # only count if we're neighbors?
                 D += np.sqrt(p[j] * p[i])
-    #
-    # this solution depends on d = 1
-    # D = 0
-    # for idx in range(rc_bin):
-    #     D += 2 * np.sqrt(p[idx] * p[idx - 1])
+
     MU = N_mean / D
     return MU
 
