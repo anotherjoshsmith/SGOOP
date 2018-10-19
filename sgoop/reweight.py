@@ -11,30 +11,22 @@ import numpy as np
 from statsmodels.nonparametric.kde import KDEUnivariate
 
 
-def reweight(single_sgoop, cv_columns, v_minus_c_col, kt=2.5):
+def reweight(rc, metad_traj, cv_columns, v_minus_c_col, rc_bins=20, kt=2.5):
     """
     Reweighting biased MD trajectory to unbiased probabilty along
     a given reaction coordinate. Using rbias column from COLVAR to
     perform reweighting per Tiwary and Parinello
 
-    :param single_sgoop:
-    :param cv_columns:
-    :param v_minus_c_col:
-    :param kt:
-    :return:
     """
-
     # read in parameters from sgoop object
-    colvar = single_sgoop.metad_traj[cv_columns].values
-    v_minus_c_col = single_sgoop.metad_traj[v_minus_c_col].values
-    rc = single_sgoop.rc
-    num_rc_bins = single_sgoop.num_rc_bins
+    colvar = metad_traj[cv_columns].values
+    v_minus_c = metad_traj[v_minus_c_col].values
 
     # calculate rc observable for each frame
     colvar_rc = np.sum(colvar * rc, axis=1)
 
     # calculate frame weights, per Tiwary and Parinello, JCPB 2015 (c(t) method)
-    weights = np.exp(v_minus_c_col / kt)
+    weights = np.exp(v_minus_c / kt)
     norm_weights = weights / weights.sum()
 
     # fit weighted KDE with statsmodels method
@@ -44,14 +36,8 @@ def reweight(single_sgoop, cv_columns, v_minus_c_col, kt=2.5):
             fft=False)
 
     # evaluate pdf on a grid to for use in SGOOP
-    grid = np.linspace(colvar_rc.min(), colvar.max(), num=num_rc_bins)
+    grid = np.linspace(colvar_rc.min(), colvar.max(), num=rc_bins)
     pdf = kde.evaluate(grid)
     pdf = pdf / pdf.sum()
 
-    # get max_cal transition bins
-    binned = ((colvar_rc - colvar_rc.min())
-              / (np.ptp(colvar_rc))  # normalize
-              * (num_rc_bins - 1))  # multiply by number of bins
-    binned = binned.astype(int)
-
-    return pdf, grid, binned
+    return pdf, grid

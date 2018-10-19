@@ -8,24 +8,24 @@ from sgoop.sgoop import rc_eval
 def main():
     """User Defined Variables"""
     sgoop_params = {
-        'num_rc_bins': 20,
+        'rc_bins': 20,
         'wells': 2,
         'd': 1,
     }
 
-    # load colvar and SGOOP params into Sgoop object
-    single_sgoop = load('../sgoop/data/trimmed.COLVAR', **sgoop_params)
-
-    # generate array of theta values to populate trial 2D rxn coordinates
-    thetas = np.linspace(0, 1, num=10) * np.pi
     # initialize dict of lists to store RCs and corresponding spectral gaps
     storage_lists = {
         'rc_list': None,
         'prob_list': None,
-        'eigen_values_list': None,
+        'ev_list': None,
         'sg_list': []
     }
 
+    # load colvar and SGOOP params into Sgoop object
+    single_sgoop = load('../sgoop/data/trimmed.COLVAR', **sgoop_params, **storage_lists)
+
+    # generate array of theta values to populate trial 2D rxn coordinates
+    thetas = np.linspace(0, 1, num=10) * np.pi
     for idx, theta in enumerate(thetas):
         # assign reaction coordinate based on given theta
         single_sgoop.rc = np.array([np.sin(theta), np.cos(theta)])
@@ -33,12 +33,12 @@ def main():
         if storage_lists.get('rc_list') is not None:
             storage_lists['rc_list'].append(single_sgoop.rc)
         # evaluate given reaction coordinate
-        rc_eval(single_sgoop, **storage_lists)
-        print(f'spectral gap: {storage_lists["sg_list"][-1]:.4}')
+        rc_eval(single_sgoop)
+        print(f'spectral gap: {single_sgoop.storage_dict["sg_list"][-1]:.4}')
         print()
 
     # plot the 2D free energy surface and best RC
-    best_plot(single_sgoop, thetas, **storage_lists)
+    best_plot(single_sgoop, thetas, **single_sgoop.storage_dict)
     plt.show()
 
 
