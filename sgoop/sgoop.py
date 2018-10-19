@@ -32,13 +32,13 @@ def density_estimation(x, grid, bandwidth=0.02):
     return pdf / pdf.sum()
 
 
-def md_prob(rc, max_cal_traj, rc_bin, bandwidth=0.02, **storage_dict):
+def md_prob(rc, max_cal_traj, num_rc_bins, bandwidth=0.02, **storage_dict):
     # Calculates probability along a given RC
     data_array = max_cal_traj.values
     proj = np.sum(data_array * rc, axis=1)
 
     binned = ((proj - proj.min()) / (np.ptp(proj))  # normalize
-              * (rc_bin - 1))  # multiply by number of bins
+              * (num_rc_bins - 1))  # multiply by number of bins
     binned = binned.astype(int)
 
     # ###################################
@@ -46,7 +46,7 @@ def md_prob(rc, max_cal_traj, rc_bin, bandwidth=0.02, **storage_dict):
     # ###################################
     # get probability w/ my KDE (SLOWER)
     # m = proj.shape[0] // np.sqrt(proj.shape[0])  <--- This method is much slower, but also much more accurate.
-    # m = rc_bin
+    # m = num_rc_bins
     # grid = np.linspace(proj.min() - 3 * proj.std(),
     #                    proj.max() + 3 * proj.std(),
     #                    num=m)
@@ -56,10 +56,10 @@ def md_prob(rc, max_cal_traj, rc_bin, bandwidth=0.02, **storage_dict):
     # ########## METHOD TWO #############
     # ###################################
     # get probability w/ statstmodels KDE
-    m = rc_bin
-    grid = np.linspace(proj.min(), proj.max(), num=m)
     kde = KDEUnivariate(proj)
     kde.fit(bw=bandwidth)
+
+    grid = np.linspace(proj.min(), proj.max(), num=num_rc_bins)
     prob = kde.evaluate(grid)
     prob = prob / prob.sum()
 
@@ -69,7 +69,7 @@ def md_prob(rc, max_cal_traj, rc_bin, bandwidth=0.02, **storage_dict):
     return prob, binned  # Normalize
 
 
-def mu_factor(binned, p, d, rc_bin):
+def mu_factor(binned, p, d, num_rc_bins):
     # Calculates the prefactor on SGOOP for a given RC
     # Returns the mu factor associated with the RC
     # NOTE: mu factor depends on the choice of RC!
@@ -84,8 +84,8 @@ def mu_factor(binned, p, d, rc_bin):
 
     # TODO: get rid of double-loop
     D = 0
-    for j in range(rc_bin):
-        for i in range(rc_bin):
+    for j in range(num_rc_bins):
+        for i in range(num_rc_bins):
             if (np.abs(i - j) <= d) and (i != j):  # only count if we're neighbors?
                 D += np.sqrt(p[j] * p[i])
 
@@ -93,20 +93,20 @@ def mu_factor(binned, p, d, rc_bin):
     return MU
 
 
-def transmat(MU, p, d, rc_bin):
+def transmat(MU, p, d, num_rc_bins):
     # Generates transition matrix
-    S = np.zeros([rc_bin, rc_bin])
+    S = np.zeros([num_rc_bins, num_rc_bins])
     # Non diagonal terms
     # IFF the loop is necessary, we should build S and calculate D (aka MU) at the same time
-    for j in range(rc_bin):
-        for i in range(rc_bin):
+    for j in range(num_rc_bins):
+        for i in range(num_rc_bins):
             if (p[i] != 0) and (np.abs(i - j) <= d and (i != j)):
                 S[i, j] = MU * np.sqrt(p[j] / p[i])
 
     """...we can now calculate the eigenvalues of the
     full transition matrix K, where Knm = −kmn for 
     m != n and Kmm = sum_m!=n(kmn)."""
-    for i in range(rc_bin):
+    for i in range(num_rc_bins):
         # negate diagonal terms, which should be positive
         # after the next operation
         S[i, i] = -S.sum(1)[i]
@@ -134,12 +134,12 @@ def spectral(wells, eigen_exp, eigen_values):
         return 0
 
 
-def sgoop(p, binned, d, wells, rc_bin, **storage_dict):  # rc was never called
+def sgoop(p, binned, d, wells, num_rc_bins, **storage_dict):  # rc was never called
     # SGOOP for a given probability density on a given RC
     # Start here when using probability from an external source
-    MU = mu_factor(binned, p, d, rc_bin)  # Calculated with MaxCal approach
+    MU = mu_factor(binned, p, d, num_rc_bins)  # Calculated with MaxCal approach
 
-    S = transmat(MU, p, d, rc_bin)  # Generating the transition matrix
+    S = transmat(MU, p, d, num_rc_bins)  # Generating the transition matrix
 
     eigen_values, eigen_exp = eigeneval(S)  # Calculating eigenvalues and vectors for the transition matrix
     if storage_dict.get('eigen_value_list') is not None:
@@ -158,7 +158,7 @@ def rc_eval(single_sgoop, **storage_lists):
 
     rc = single_sgoop.rc
     max_cal_traj = single_sgoop.max_cal_traj
-    rc_bin = single_sgoop.rc_bin
+    num_rc_bins = single_sgoop.num_rc_bins
     wells = single_sgoop.wells
     d = single_sgoop.d
 
@@ -168,9 +168,9 @@ def rc_eval(single_sgoop, **storage_lists):
 
     """Probabilities and Index on RC"""
     # TODO: if biased, call biased prob (maybe write that within md_prob)
-    prob, binned = md_prob(rc, max_cal_traj, rc_bin, **storage_lists)
+    prob, binned = md_prob(rc, max_cal_traj, num_rc_bins, **storage_lists)
 
     """Main SGOOP Method"""
-    sg = sgoop(prob, binned, d, wells, rc_bin, **storage_lists)
+    sg = sgoop(prob, binned, d, wells, num_rc_bins, **storage_lists)
 
     return sg

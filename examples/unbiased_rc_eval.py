@@ -8,7 +8,7 @@ from sgoop.sgoop import rc_eval
 def main():
     """User Defined Variables"""
     sgoop_params = {
-        'rc_bin': 20,
+        'num_rc_bins': 20,
         'wells': 2,
         'd': 1,
     }
