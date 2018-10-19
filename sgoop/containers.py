@@ -10,6 +10,9 @@ def read_plumed_file(filename):
     :param filename:
     :return: pd.DataFrame
     """
+    if filename is None:
+        return None
+
     filename = op.abspath(filename)
 
     with open(filename, 'r') as f:
@@ -24,14 +27,14 @@ class Sgoop:
     """
     Copying some handling from plumitas to deal with plumed files more easily.
     """
-    def __init__(self, max_cal_traj, ct_col=None, rc=None, rc_bin=20, wells=2, d=1):
-        self.max_cal_traj = read_plumed_file(max_cal_traj)
-        self.ct_col = ct_col
+    def __init__(self, max_cal_colvar, metad_colvar=None, rc=None, num_rc_bins=20, wells=2, d=1):
+        self.max_cal_traj = read_plumed_file(max_cal_colvar)
+        self.metad_traj = read_plumed_file(metad_colvar)
         self.rc = rc
-        self.rc_bin = rc_bin
+        self.num_rc_bins = num_rc_bins
         self.wells = wells
         self.d = d
 
 
-def load(colvar: str, **kwargs):
-    return Sgoop(colvar, **kwargs)
+def load(max_cal_colvar, metad_colvar=None, **kwargs):
+    return Sgoop(max_cal_colvar, metad_colvar, **kwargs)
