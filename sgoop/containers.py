@@ -24,8 +24,8 @@ class Sgoop:
     """
     Copying some handling from plumitas to deal with plumed files more easily.
     """
-    def __init__(self, colvar, ct_col=None, rc=None, rc_bin=20, wells=2, d=1):
-        self.colvar = read_plumed_file(colvar)
+    def __init__(self, max_cal_traj, ct_col=None, rc=None, rc_bin=20, wells=2, d=1):
+        self.max_cal_traj = read_plumed_file(max_cal_traj)
         self.ct_col = ct_col
         self.rc = rc
         self.rc_bin = rc_bin

@@ -31,9 +31,9 @@ def density_estimation(x, grid, bandwidth=0.02):
     return pdf / pdf.sum()
 
 
-def md_prob(rc, colvar, rc_bin, **storage_dict):
+def md_prob(rc, max_cal_traj, rc_bin, **storage_dict):
     # Calculates probability along a given RC
-    data_array = colvar.values
+    data_array = max_cal_traj.values
     proj = np.sum(data_array * rc, axis=1)
 
     binned = ((proj - proj.min()) / (np.ptp(proj))  # normalize
@@ -137,58 +137,12 @@ def sgoop(p, binned, d, wells, rc_bin, **storage_dict):  # rc was never called
     return sg
 
 
-def best_plot(colvar, **storage_dict):
-    if not storage_dict.get('rc_list') or not storage_dict.get('sg_list'):
-        print('Ooops! Looks you forgot to store your Reaction Coordinates'
-              'or spectral gaps. Please try again, with storage dictionary.')
-        return
-    rc_list = storage_dict['rc_list']
-    sg_list = storage_dict['sg_list']
-
-    data_array = colvar.values
-    # Displays the best RC for 2D data
-    best_rc = np.ceil(np.arccos(rc_list[np.argmax(sg_list)][0]) * 180 / np.pi)
-    plt.figure()
-
-    x_data = data_array[:, 0]
-    y_data = data_array[:, 1]
-
-    hist, x_edges, y_edges = np.histogram2d(x_data, y_data, 20)
-    hist = hist.T
-    prob = hist / np.sum(hist)
-    energy = -np.log(prob)
-    energy -= np.min(energy)
-
-    # clip and center edges
-    dx = x_edges[1] - x_edges[0]
-    dy = y_edges[1] - y_edges[0]
-    x_edges = x_edges[:-1] + dx
-    y_edges = y_edges[:-1] + dy
-
-    # plot energy
-    plt.contourf(x_edges, y_edges, energy)
-    cbar = plt.colorbar()
-    # plt.clim(0, clim)
-    plt.set_cmap('viridis')
-    cbar.ax.set_ylabel('G [kT]')
-    # plot RC
-    origin = [
-        (x_data.max() + x_data.min()) / 2,
-        (y_data.max() + y_data.min()) / 2,
-    ]
-    plt.title('Best RC = {0:.2f} Degrees'.format(best_rc))
-    rcx = np.cos(np.pi * best_rc / 180)
-    rcy = np.sin(np.pi * best_rc / 180)
-    plt.quiver(*origin, rcx, rcy, scale=.1, color='grey');
-    plt.quiver(*origin, -rcx, -rcy, scale=.1, color='grey');
-
-
 def rc_eval(single_sgoop, **storage_lists):
     # Unbiased SGOOP on a given RC
     # Input type: array of weights
 
     rc = single_sgoop.rc
-    colvar = single_sgoop.colvar
+    max_cal_traj = single_sgoop.max_cal_traj
     rc_bin = single_sgoop.rc_bin
     wells = single_sgoop.wells
     d = single_sgoop.d
@@ -199,7 +153,7 @@ def rc_eval(single_sgoop, **storage_lists):
 
     """Probabilities and Index on RC"""
     # TODO: if biased, call biased prob (maybe write that within md_prob)
-    prob, binned = md_prob(rc, colvar, rc_bin, **storage_lists)
+    prob, binned = md_prob(rc, max_cal_traj, rc_bin, **storage_lists)
 
     """Main SGOOP Method"""
     sg = sgoop(prob, binned, d, wells, rc_bin, **storage_lists)
