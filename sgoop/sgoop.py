@@ -9,8 +9,9 @@ The original method was published by Tiwary and Berne, PNAS 2016, 113, 2839.
 Author: Zachary Smith                   zsmith7@terpmail.umd.edu
 Original Algorithm: Pratyush Tiwary     ptiwary@umd.edu 
 Contributor: Pablo Bravo Collado        ptbravo@uc.cl"""
+
 import numpy as np
-import matplotlib.pyplot as plt
+from statsmodels.nonparametric.kde import KDEUnivariate
 
 
 def density_estimation(x, grid, bandwidth=0.02):
@@ -31,7 +32,7 @@ def density_estimation(x, grid, bandwidth=0.02):
     return pdf / pdf.sum()
 
 
-def md_prob(rc, max_cal_traj, rc_bin, **storage_dict):
+def md_prob(rc, max_cal_traj, rc_bin, bandwidth=0.02, **storage_dict):
     # Calculates probability along a given RC
     data_array = max_cal_traj.values
     proj = np.sum(data_array * rc, axis=1)
@@ -40,13 +41,27 @@ def md_prob(rc, max_cal_traj, rc_bin, **storage_dict):
               * (rc_bin - 1))  # multiply by number of bins
     binned = binned.astype(int)
 
-    # get probability w/ KDE
+    # ###################################
+    # ########## METHOD ONE #############
+    # ###################################
+    # get probability w/ my KDE (SLOWER)
     # m = proj.shape[0] // np.sqrt(proj.shape[0])  <--- This method is much slower, but also much more accurate.
+    # m = rc_bin
+    # grid = np.linspace(proj.min() - 3 * proj.std(),
+    #                    proj.max() + 3 * proj.std(),
+    #                    num=m)
+    # prob = density_estimation(proj, grid, bandwidth=0.02)
+
+    # ###################################
+    # ########## METHOD TWO #############
+    # ###################################
+    # get probability w/ statstmodels KDE
     m = rc_bin
-    grid = np.linspace(proj.min() - 3 * proj.std(),
-                       proj.max() + 3 * proj.std(),
-                       num=m)
-    prob = density_estimation(proj, grid, bandwidth=0.02)
+    grid = np.linspace(proj.min(), proj.max(), num=m)
+    kde = KDEUnivariate(proj)
+    kde.fit(bw=bandwidth)
+    prob = kde.evaluate(grid)
+    prob = prob / prob.sum()
 
     if storage_dict['prob_list'] is not None:
         storage_dict['prob_list'].append(prob)
