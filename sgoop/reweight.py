@@ -48,4 +48,10 @@ def reweight(single_sgoop, cv_columns, v_minus_c_col, kt=2.5):
     pdf = kde.evaluate(grid)
     pdf = pdf / pdf.sum()
 
-    return pdf, grid
+    # get max_cal transition bins
+    binned = ((colvar_rc - colvar_rc.min())
+              / (np.ptp(colvar_rc))  # normalize
+              * (num_rc_bins - 1))  # multiply by number of bins
+    binned = binned.astype(int)
+
+    return pdf, grid, binned

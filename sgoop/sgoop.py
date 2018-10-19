@@ -37,10 +37,6 @@ def md_prob(rc, max_cal_traj, num_rc_bins, bandwidth=0.02, **storage_dict):
     data_array = max_cal_traj.values
     proj = np.sum(data_array * rc, axis=1)
 
-    binned = ((proj - proj.min()) / (np.ptp(proj))  # normalize
-              * (num_rc_bins - 1))  # multiply by number of bins
-    binned = binned.astype(int)
-
     # ###################################
     # ########## METHOD ONE #############
     # ###################################
@@ -66,7 +62,12 @@ def md_prob(rc, max_cal_traj, num_rc_bins, bandwidth=0.02, **storage_dict):
     if storage_dict['prob_list'] is not None:
         storage_dict['prob_list'].append(prob)
 
-    return prob, binned  # Normalize
+    # get MaxCal transition bins
+    binned = ((proj - proj.min()) / (np.ptp(proj))  # normalize
+              * (num_rc_bins - 1))  # multiply by number of bins
+    binned = binned.astype(int)
+
+    return prob, grid, binned  # Normalize
 
 
 def mu_factor(binned, p, d, num_rc_bins):
@@ -168,7 +169,7 @@ def rc_eval(single_sgoop, **storage_lists):
 
     """Probabilities and Index on RC"""
     # TODO: if biased, call biased prob (maybe write that within md_prob)
-    prob, binned = md_prob(rc, max_cal_traj, num_rc_bins, **storage_lists)
+    prob, grid, binned = md_prob(rc, max_cal_traj, num_rc_bins, **storage_lists)
 
     """Main SGOOP Method"""
     sg = sgoop(prob, binned, d, wells, num_rc_bins, **storage_lists)

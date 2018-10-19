@@ -22,7 +22,7 @@ def main():
 
     single_sgoop.rc = [1 / len(cv_columns) for _ in cv_columns]
 
-    pdf, grid = reweight(single_sgoop, cv_columns, v_minus_c_col)
+    pdf, grid, binned = reweight(single_sgoop, cv_columns, v_minus_c_col)
     
     # plot pdf on grid of 
     plt.plot(grid, pdf)
