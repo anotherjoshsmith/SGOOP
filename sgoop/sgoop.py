@@ -30,7 +30,7 @@ def md_prob(rc, max_cal_traj, rc_bins, bandwidth=0.02, **storage_dict):
 
     grid = np.linspace(proj.min(), proj.max(), num=rc_bins)
     prob = kde.evaluate(grid)
-    prob = prob / prob.sum()
+    # prob = prob / prob.sum()
 
     if storage_dict['prob_list'] is not None:
         storage_dict['prob_list'].append(prob)
@@ -64,9 +64,10 @@ def reweight(rc, metad_traj, cv_columns, v_minus_c_col,
             fft=False)
 
     # evaluate pdf on a grid to for use in SGOOP
+    # TODO: area under curve between pts instead of pdf at point
     grid = np.linspace(colvar_rc.min(), colvar.max(), num=rc_bins)
     pdf = kde.evaluate(grid)
-    pdf = pdf / pdf.sum()
+    # pdf = pdf / pdf.sum()  # this normalization might not really make sense
 
     return pdf, grid
 
@@ -77,7 +78,7 @@ def reweight(rc, metad_traj, cv_columns, v_minus_c_col,
 
 def bin_max_cal(rc, max_cal_traj, grid):
     # project unbiased observables onto
-    proj = np.sum(max_cal_traj * rc, axis=1)
+    proj = np.sum(max_cal_traj * rc, axis=1).values
 
     binned = np.zeros_like(proj)
     for idx, val in enumerate(proj):
@@ -91,7 +92,7 @@ def bin_max_cal(rc, max_cal_traj, grid):
 ####### unbiased and probability from biased trajectory.     #########
 ######################################################################
 
-def mu_factor(binned_rc_traj, p, d, rc_bins):
+def mu_factor(binned_rc_traj, p, d):
     # Calculates the prefactor on SGOOP for a given RC
     # Returns the mu factor associated with the RC
     # NOTE: mu factor depends on the choice of RC!
@@ -104,8 +105,8 @@ def mu_factor(binned_rc_traj, p, d, rc_bins):
     N_mean = N_mean / len(binned_rc_traj)
 
     D = 0
-    for j in range(rc_bins):
-        for i in range(rc_bins):
+    for j in range(len(p)):
+        for i in range(len(p)):
             if (np.abs(i - j) <= d) and (i != j):  # only count if we're neighbors?
                 D += np.sqrt(p[j] * p[i])
 
@@ -113,20 +114,20 @@ def mu_factor(binned_rc_traj, p, d, rc_bins):
     return MU
 
 
-def transmat(MU, p, d, rc_bins):
+def transmat(MU, p, d):
     # Generates transition matrix
-    S = np.zeros([rc_bins, rc_bins])
+    S = np.zeros([len(p), len(p)])
     # Non diagonal terms
     # IFF the loop is necessary, we should build S and calculate D (aka MU) at the same time
-    for j in range(rc_bins):
-        for i in range(rc_bins):
+    for j in range(len(p)):
+        for i in range(len(p)):
             if (p[i] != 0) and (np.abs(i - j) <= d and (i != j)):
                 S[i, j] = MU * np.sqrt(p[j] / p[i])
 
     """...we can now calculate the eigenvalues of the
     full transition matrix K, where Knm = −kmn for 
     m != n and Kmm = sum_m!=n(kmn)."""
-    for i in range(rc_bins):
+    for i in range(len(p)):
         # negate diagonal terms, which should be positive
         # after the next operation
         S[i, i] = -S.sum(1)[i]
@@ -158,12 +159,12 @@ def spectral(wells, eigen_exp, eigen_values):
         return 0
 
 
-def sgoop(p, binned, d, wells, rc_bins, **storage_dict):  # rc was never called
+def sgoop(p, binned, d, wells, **storage_dict):  # rc was never called
     # SGOOP for a given probability density on a given RC
     # Start here when using probability from an external source
-    MU = mu_factor(binned, p, d, rc_bins)  # Calculated with MaxCal approach
+    MU = mu_factor(binned, p, d)  # Calculated with MaxCal approach
 
-    S = transmat(MU, p, d, rc_bins)  # Generating the transition matrix
+    S = transmat(MU, p, d)  # Generating the transition matrix
 
     eigen_values, eigen_exp = eigeneval(S)  # Calculating eigenvalues and vectors for the transition matrix
     if storage_dict.get('eigen_value_list') is not None:
@@ -199,12 +200,12 @@ def rc_eval(single_sgoop):
     binned = bin_max_cal(rc, max_cal_traj, grid)
 
     """Main SGOOP Method"""
-    sg = sgoop(prob, binned, d, wells, rc_bins, **storage_lists)
+    sg = sgoop(prob, binned, d, wells, **storage_lists)
 
     return sg
 
 
-def optimize_rc(rc_0, single_sgoop, niter=50, annealing_temp=0.01):
+def optimize_rc(rc_0, single_sgoop, niter=50, annealing_temp=0.1):
     """
     Calculate optimal RC given an initial estimate for the coefficients
     and a Sgoop object containing a COLVAR file with CVs tracked over
@@ -217,18 +218,6 @@ def optimize_rc(rc_0, single_sgoop, niter=50, annealing_temp=0.01):
     :param annealing_temp:
     :return:
     """
-    minimizer_kwargs = {
-        "options": {"maxiter": 10},
-        "args": single_sgoop
-    }
-
-    return opt.basinhopping(__opt_func, rc_0,
-                            niter=niter, T=annealing_temp, stepsize=1,
-                            minimizer_kwargs=minimizer_kwargs,
-                            callback=__print_fun)
-
-
-def __opt_func(rc, single_sgoop):
     # unpack sgoop object for reweighting
     max_cal_traj = single_sgoop.max_cal_traj
     metad_traj = single_sgoop.metad_traj
@@ -239,21 +228,39 @@ def __opt_func(rc, single_sgoop):
     rc_bins = single_sgoop.rc_bins
     storage_dict = single_sgoop.storage_dict
 
+    minimizer_kwargs = {
+        "options": {"maxiter": 10},
+        "args": (max_cal_traj, metad_traj, cv_cols, v_minus_c_col,
+                 d, wells, rc_bins, storage_dict)
+    }
+
+    return opt.basinhopping(__opt_func, rc_0,
+                            niter=niter, T=annealing_temp, stepsize=0.5,
+                            minimizer_kwargs=minimizer_kwargs,
+                            callback=__print_fun)
+
+
+def __opt_func(rc, max_cal_traj, metad_traj, cv_cols, v_minus_c_col,
+                 d, wells, rc_bins, storage_dict):
     # calculate reweighted probability on RC grid
     prob, grid = reweight(rc, metad_traj, cv_cols,
                           v_minus_c_col, rc_bins)
+    # institute probability cutoff to ignore extremely unlikely events
+    prob_cutoff = 1e-5  # Minimum nonzero probability
+    grid = grid[np.where(prob > prob_cutoff)]
+    prob = prob[np.where(prob > prob_cutoff)]
+
     # get binned rc values from max cal traj
-    binned_rc_traj = bin_max_cal(max_cal_traj, rc, grid)
+    binned_rc_traj = bin_max_cal(rc, max_cal_traj, grid)
     # calculate spectral gap for given rc and trajectories
-    sg = sgoop(prob, binned_rc_traj, d, wells,
-               rc_bins, **storage_dict)
+    sg = sgoop(prob, binned_rc_traj, d, wells, **storage_dict)
     # return negative gap for minimization
     return -sg
 
 
 def __print_fun(x, f, accepted):
     print(x, end=' ')
-    if accepted == 1:
-        print(f"with spectral gap {-f:.4} accepted.")
+    if accepted:
+        print(f"with spectral gap {-f:} accepted.")
     else:
-        print(f"with spectral gap {-f:.4} declined.")
+        print(f"with spectral gap {-f:} declined.")
