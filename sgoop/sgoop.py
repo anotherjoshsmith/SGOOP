@@ -57,17 +57,26 @@ def reweight(rc, metad_traj, cv_columns, v_minus_c_col,
     weights = np.exp(v_minus_c / kt)
     norm_weights = weights / weights.sum()
 
-    # fit weighted KDE with statsmodels method
-    kde = KDEUnivariate(colvar_rc)
-    kde.fit(weights=norm_weights,
-            bw=0.05,
-            fft=False)
+    # histogram density for coarse optimization (
+    hist, bin_edges = np.histogram(
+        colvar_rc, weights=norm_weights, bins=rc_bins, density=True,
+        range=(colvar_rc.min(), colvar_rc.max())
+    )
+    # set grid points to center of bins
+    bin_width = bin_edges[1] - bin_edges[0]
+    grid = bin_edges[:-1] + bin_width
+    pdf = hist
 
-    # evaluate pdf on a grid to for use in SGOOP
-    # TODO: area under curve between pts instead of pdf at point
-    grid = np.linspace(colvar_rc.min(), colvar.max(), num=rc_bins)
-    pdf = kde.evaluate(grid)
-    # pdf = pdf / pdf.sum()  # this normalization might not really make sense
+    # # KDE for fine-grained optimization
+    # kde = KDEUnivariate(colvar_rc)
+    # kde.fit(weights=norm_weights,
+    #         bw=0.1,
+    #         fft=False)
+    #
+    # # evaluate pdf on a grid to for use in SGOOP
+    # # TODO: area under curve between points instead of pdf at point
+    # grid = np.linspace(colvar_rc.min(), colvar_rc.max(), num=rc_bins)
+    # pdf = kde.evaluate(grid)
 
     return pdf, grid
 
@@ -229,7 +238,10 @@ def optimize_rc(rc_0, single_sgoop, niter=50, annealing_temp=0.1):
     storage_dict = single_sgoop.storage_dict
 
     minimizer_kwargs = {
-        "options": {"maxiter": 10},
+        "method": 'BFGS',
+        "options": {
+            "maxiter": 10
+        },
         "args": (max_cal_traj, metad_traj, cv_cols, v_minus_c_col,
                  d, wells, rc_bins, storage_dict)
     }
@@ -237,30 +249,37 @@ def optimize_rc(rc_0, single_sgoop, niter=50, annealing_temp=0.1):
     return opt.basinhopping(__opt_func, rc_0,
                             niter=niter, T=annealing_temp, stepsize=0.5,
                             minimizer_kwargs=minimizer_kwargs,
-                            callback=__print_fun)
+                            disp=True)  # , callback=__print_fun)
 
 
 def __opt_func(rc, max_cal_traj, metad_traj, cv_cols, v_minus_c_col,
                  d, wells, rc_bins, storage_dict):
     # calculate reweighted probability on RC grid
+    # import time
+    # start = time.time()
     prob, grid = reweight(rc, metad_traj, cv_cols,
                           v_minus_c_col, rc_bins)
+    # print(f'reweight {time.time() - start}')
     # institute probability cutoff to ignore extremely unlikely events
     prob_cutoff = 1e-5  # Minimum nonzero probability
     grid = grid[np.where(prob > prob_cutoff)]
     prob = prob[np.where(prob > prob_cutoff)]
 
     # get binned rc values from max cal traj
+    # start = time.time()
     binned_rc_traj = bin_max_cal(rc, max_cal_traj, grid)
+    # print(f'bin max cal {time.time() - start}')
     # calculate spectral gap for given rc and trajectories
+    # start = time.time()
     sg = sgoop(prob, binned_rc_traj, d, wells, **storage_dict)
+    # print(f'sgoop {time.time() - start}')
     # return negative gap for minimization
     return -sg
 
-
-def __print_fun(x, f, accepted):
-    print(x, end=' ')
-    if accepted:
-        print(f"with spectral gap {-f:} accepted.")
-    else:
-        print(f"with spectral gap {-f:} declined.")
+#
+# def __print_fun(x, f, accepted):
+#     print(x, end=' ')
+#     if accepted:
+#         print(f"with spectral gap {-f:} accepted.")
+#     else:
+#         print(f"with spectral gap {-f:} declined.")
