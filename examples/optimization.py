@@ -18,8 +18,8 @@ sgoop_params = {
                 'R481_dist.min', 'S485_dist.min', 'I384_R406',
                 'I384_S485', 'R406_S485'],
     # adjust sgoop params
-    'rc_bins': 50,
-    'wells': 2,
+    'rc_bins': 20,
+    'wells': 3,
     'd': 1,
     # create lists for storage, if ya want
     'rc_list': [],
@@ -40,8 +40,8 @@ single_sgoop.metad_traj = single_sgoop.metad_traj.iloc[::10, :]
 
 # randomly initialize weights, assign high weight to biased CV
 np.random.seed(24)
-x0 = np.array([np.random.randn() for _ in range(16)])
-x0[3] = 5
+x0 = np.array([0 for _ in range(16)])
+x0[3] = 1
 x0 = x0 / np.sqrt(np.sum(np.square(x0)))  # normalize
 
 print(f'initial RC guess: {x0}')

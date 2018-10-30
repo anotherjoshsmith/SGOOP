@@ -176,8 +176,8 @@ def sgoop(p, binned, d, wells, **storage_dict):  # rc was never called
     S = transmat(MU, p, d)  # Generating the transition matrix
 
     eigen_values, eigen_exp = eigeneval(S)  # Calculating eigenvalues and vectors for the transition matrix
-    if storage_dict.get('eigen_value_list') is not None:
-        storage_dict['eigen_value_list'].append(eigen_values)
+    if storage_dict.get('ev_list') is not None:
+        storage_dict['ev_list'].append(eigen_values)
 
     sg = spectral(wells, eigen_exp, eigen_values)  # Calculating the spectral gap
     if storage_dict.get('sg_list') is not None:
@@ -255,24 +255,13 @@ def optimize_rc(rc_0, single_sgoop, niter=50, annealing_temp=0.1):
 def __opt_func(rc, max_cal_traj, metad_traj, cv_cols, v_minus_c_col,
                  d, wells, rc_bins, storage_dict):
     # calculate reweighted probability on RC grid
-    # import time
-    # start = time.time()
     prob, grid = reweight(rc, metad_traj, cv_cols,
                           v_minus_c_col, rc_bins)
-    # print(f'reweight {time.time() - start}')
-    # institute probability cutoff to ignore extremely unlikely events
-    prob_cutoff = 1e-5  # Minimum nonzero probability
-    grid = grid[np.where(prob > prob_cutoff)]
-    prob = prob[np.where(prob > prob_cutoff)]
 
     # get binned rc values from max cal traj
-    # start = time.time()
     binned_rc_traj = bin_max_cal(rc, max_cal_traj, grid)
-    # print(f'bin max cal {time.time() - start}')
     # calculate spectral gap for given rc and trajectories
-    # start = time.time()
     sg = sgoop(prob, binned_rc_traj, d, wells, **storage_dict)
-    # print(f'sgoop {time.time() - start}')
     # return negative gap for minimization
     return -sg
 
