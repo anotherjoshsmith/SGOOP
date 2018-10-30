@@ -214,7 +214,8 @@ def rc_eval(single_sgoop):
     return sg
 
 
-def optimize_rc(rc_0, single_sgoop, niter=50, annealing_temp=0.1):
+def optimize_rc(rc_0, single_sgoop, niter=50, annealing_temp=0.1,
+                step_size=0.5):
     """
     Calculate optimal RC given an initial estimate for the coefficients
     and a Sgoop object containing a COLVAR file with CVs tracked over
@@ -240,14 +241,14 @@ def optimize_rc(rc_0, single_sgoop, niter=50, annealing_temp=0.1):
     minimizer_kwargs = {
         "method": 'BFGS',
         "options": {
-            "maxiter": 10
+            # "maxiter": 10
         },
         "args": (max_cal_traj, metad_traj, cv_cols, v_minus_c_col,
                  d, wells, rc_bins, storage_dict)
     }
 
     return opt.basinhopping(__opt_func, rc_0,
-                            niter=niter, T=annealing_temp, stepsize=0.5,
+                            niter=niter, T=annealing_temp, stepsize=step_size,
                             minimizer_kwargs=minimizer_kwargs,
                             disp=True)  # , callback=__print_fun)
 

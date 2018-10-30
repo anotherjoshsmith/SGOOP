@@ -1,5 +1,8 @@
 import numpy as np
 
+import sys
+sys.path.append('../')
+
 from sgoop.containers import load
 from sgoop.sgoop import optimize_rc
 
@@ -39,14 +42,15 @@ single_sgoop.metad_traj = single_sgoop.metad_traj.iloc[::10, :]
 #       0.85698247, 0.37547508, -0.79396719, -1.70581114]
 
 # randomly initialize weights, assign high weight to biased CV
-np.random.seed(24)
+# np.random.seed(24)
 x0 = np.array([0 for _ in range(16)])
 x0[3] = 1
 x0 = x0 / np.sqrt(np.sum(np.square(x0)))  # normalize
 
 print(f'initial RC guess: {x0}')
 
-ret = optimize_rc(x0, single_sgoop, niter=50, annealing_temp=0.01)
+ret = optimize_rc(x0, single_sgoop, niter=50, annealing_temp=0.01, 
+                  step_size=0.5)
 
 x = ret.x / np.sqrt(np.sum(np.square(ret.x)))
 print(f'Best RC coeffient array: {x}')
