@@ -250,11 +250,13 @@ def optimize_rc(rc_0, single_sgoop, niter=50, annealing_temp=0.1,
     return opt.basinhopping(__opt_func, rc_0,
                             niter=niter, T=annealing_temp, stepsize=step_size,
                             minimizer_kwargs=minimizer_kwargs,
-                            disp=True)  # , callback=__print_fun)
+                            disp=True, callback=__print_fun)
 
 
 def __opt_func(rc, max_cal_traj, metad_traj, cv_cols, v_minus_c_col,
                  d, wells, rc_bins, storage_dict):
+    # normalize
+    rc = rc / np.sqrt(np.sum(np.square(rc)))
     # calculate reweighted probability on RC grid
     prob, grid = reweight(rc, metad_traj, cv_cols,
                           v_minus_c_col, rc_bins)
@@ -266,10 +268,10 @@ def __opt_func(rc, max_cal_traj, metad_traj, cv_cols, v_minus_c_col,
     # return negative gap for minimization
     return -sg
 
-#
-# def __print_fun(x, f, accepted):
-#     print(x, end=' ')
-#     if accepted:
-#         print(f"with spectral gap {-f:} accepted.")
-#     else:
-#         print(f"with spectral gap {-f:} declined.")
+
+def __print_fun(x, f, accepted):
+    if accepted:
+        print(f"RC with spectral gap {-f:} accepted.")
+        print(', '.join([str(coeff) for coeff in x]), '\n')  
+    else:
+        print('')

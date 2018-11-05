@@ -1,15 +1,15 @@
 import numpy as np
 
 import sys
-sys.path.append('../')
+sys.path.append('../../')
 
 from sgoop.containers import load
 from sgoop.sgoop import optimize_rc
 
 
 # Specify the filenames for your biased and unbiased runs
-metad_file = '../sgoop/data/F399_COLVAR_8ns'  # biased colvar file
-max_cal_file = '../sgoop/data/max_cal.COLVAR'  # unbiased colvar file
+metad_file = '../../sgoop/data/F399_COLVAR_8ns'  # biased colvar file
+max_cal_file = '../../sgoop/data/max_cal.COLVAR'  # unbiased colvar file
 
 # specify columns you want to require
 sgoop_params = {
@@ -22,12 +22,12 @@ sgoop_params = {
                 'I384_S485', 'R406_S485'],
     # adjust sgoop params
     'rc_bins': 20,
-    'wells': 3,
+    'wells': 2,
     'd': 1,
     # create lists for storage, if ya want
-    'rc_list': [],
-    'prob_list': [],
-    'ev_list': [],
+    'rc_list': None,
+    'prob_list': None,
+    'ev_list': None,
     'sg_list': []
 }
 
@@ -41,16 +41,15 @@ single_sgoop.metad_traj = single_sgoop.metad_traj.iloc[::10, :]
 #       9.0982063, -5.46860743, 3.47629007, 0.60513158,
 #       0.85698247, 0.37547508, -0.79396719, -1.70581114]
 
-# randomly initialize weights, assign high weight to biased CV
+# assign weight to biased CV from trial run
 # np.random.seed(24)
 x0 = np.array([0 for _ in range(16)])
 x0[3] = 1
-x0 = x0 / np.sqrt(np.sum(np.square(x0)))  # normalize
+# x0 = x0 / np.sqrt(np.sum(np.square(x0)))  # normalize
 
 print(f'initial RC guess: {x0}')
 
-ret = optimize_rc(x0, single_sgoop, niter=50, annealing_temp=0.01, 
-                  step_size=0.5)
+ret = optimize_rc(x0, single_sgoop, niter=100, annealing_temp=0.01, 
+                  step_size=1.0)
 
-x = ret.x / np.sqrt(np.sum(np.square(ret.x)))
-print(f'Best RC coeffient array: {x}')
+print(f'Best RC coeffient array: {ret.x}')
