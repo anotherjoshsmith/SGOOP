@@ -39,7 +39,7 @@ def md_prob(rc, max_cal_traj, rc_bins, bandwidth=0.02, **storage_dict):
 
 
 def reweight(rc, metad_traj, cv_columns, v_minus_c_col,
-             rc_bins=20, kt=2.5):
+             rc_bins=20, kt=2.5, kde=False):
     """
     Reweighting biased MD trajectory to unbiased probabilty along
     a given reaction coordinate. Using rbias column from COLVAR to
@@ -57,17 +57,29 @@ def reweight(rc, metad_traj, cv_columns, v_minus_c_col,
     weights = np.exp(v_minus_c / kt)
     norm_weights = weights / weights.sum()
 
-    # fit weighted KDE with statsmodels method
-    kde = KDEUnivariate(colvar_rc)
-    kde.fit(weights=norm_weights,
-            bw=0.05,
-            fft=False)
+    if kde:
+        # KDE for fine-grained optimization
+        kde = KDEUnivariate(colvar_rc)
+        kde.fit(weights=norm_weights,
+                bw=0.1,
+                fft=False)
 
-    # evaluate pdf on a grid to for use in SGOOP
-    # TODO: area under curve between pts instead of pdf at point
-    grid = np.linspace(colvar_rc.min(), colvar.max(), num=rc_bins)
-    pdf = kde.evaluate(grid)
-    # pdf = pdf / pdf.sum()  # this normalization might not really make sense
+        # evaluate pdf on a grid to for use in SGOOP
+        # TODO: area under curve between points instead of pdf at point
+        grid = np.linspace(colvar_rc.min(), colvar_rc.max(), num=rc_bins)
+        pdf = kde.evaluate(grid)
+
+        return pdf, grid
+
+    # histogram density for coarse optimization (
+    hist, bin_edges = np.histogram(
+        colvar_rc, weights=norm_weights, bins=rc_bins, density=True,
+        range=(colvar_rc.min(), colvar_rc.max())
+    )
+    # set grid points to center of bins
+    bin_width = bin_edges[1] - bin_edges[0]
+    grid = bin_edges[:-1] + bin_width
+    pdf = hist
 
     return pdf, grid
 
@@ -167,8 +179,8 @@ def sgoop(p, binned, d, wells, **storage_dict):  # rc was never called
     S = transmat(MU, p, d)  # Generating the transition matrix
 
     eigen_values, eigen_exp = eigeneval(S)  # Calculating eigenvalues and vectors for the transition matrix
-    if storage_dict.get('eigen_value_list') is not None:
-        storage_dict['eigen_value_list'].append(eigen_values)
+    if storage_dict.get('ev_list') is not None:
+        storage_dict['ev_list'].append(eigen_values)
 
     sg = spectral(wells, eigen_exp, eigen_values)  # Calculating the spectral gap
     if storage_dict.get('sg_list') is not None:
@@ -205,7 +217,8 @@ def rc_eval(single_sgoop):
     return sg
 
 
-def optimize_rc(rc_0, single_sgoop, niter=50, annealing_temp=0.1):
+def optimize_rc(rc_0, single_sgoop, niter=50, annealing_temp=0.1,
+                step_size=0.5, kde=False):
     """
     Calculate optimal RC given an initial estimate for the coefficients
     and a Sgoop object containing a COLVAR file with CVs tracked over
@@ -229,26 +242,28 @@ def optimize_rc(rc_0, single_sgoop, niter=50, annealing_temp=0.1):
     storage_dict = single_sgoop.storage_dict
 
     minimizer_kwargs = {
-        "options": {"maxiter": 10},
+        "method": 'BFGS',
+        "options": {
+            # "maxiter": 10
+        },
         "args": (max_cal_traj, metad_traj, cv_cols, v_minus_c_col,
-                 d, wells, rc_bins, storage_dict)
+                 d, wells, rc_bins, kde, storage_dict)
     }
 
     return opt.basinhopping(__opt_func, rc_0,
-                            niter=niter, T=annealing_temp, stepsize=0.5,
+                            niter=niter, T=annealing_temp, stepsize=step_size,
                             minimizer_kwargs=minimizer_kwargs,
-                            callback=__print_fun)
+                            disp=True, callback=__print_fun)
 
 
 def __opt_func(rc, max_cal_traj, metad_traj, cv_cols, v_minus_c_col,
-                 d, wells, rc_bins, storage_dict):
+                 d, wells, rc_bins, kde, storage_dict):
+    # normalize
+    rc = rc / np.sqrt(np.sum(np.square(rc)))
     # calculate reweighted probability on RC grid
     prob, grid = reweight(rc, metad_traj, cv_cols,
-                          v_minus_c_col, rc_bins)
-    # institute probability cutoff to ignore extremely unlikely events
-    prob_cutoff = 1e-5  # Minimum nonzero probability
-    grid = grid[np.where(prob > prob_cutoff)]
-    prob = prob[np.where(prob > prob_cutoff)]
+                          v_minus_c_col, rc_bins,
+                          kde=kde)
 
     # get binned rc values from max cal traj
     binned_rc_traj = bin_max_cal(rc, max_cal_traj, grid)
@@ -259,8 +274,8 @@ def __opt_func(rc, max_cal_traj, metad_traj, cv_cols, v_minus_c_col,
 
 
 def __print_fun(x, f, accepted):
-    print(x, end=' ')
     if accepted:
-        print(f"with spectral gap {-f:} accepted.")
+        print(f"RC with spectral gap {-f:} accepted.")
+        print(', '.join([str(coeff) for coeff in x]), '\n')  
     else:
-        print(f"with spectral gap {-f:} declined.")
+        print('')
