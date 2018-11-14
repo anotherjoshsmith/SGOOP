@@ -19,27 +19,9 @@ import scipy.optimize as opt
 ############ Get probabilities along RC with KDE #####################
 ######################################################################
 
-def md_prob(rc, max_cal_traj, rc_bins, bandwidth=0.02, **storage_dict):
-    # Calculates probability along a given RC
-    data_array = max_cal_traj.values
-    proj = np.sum(data_array * rc, axis=1)
 
-    # get probability w/ statstmodels KDE
-    kde = KDEUnivariate(proj)
-    kde.fit(bw=bandwidth)
-
-    grid = np.linspace(proj.min(), proj.max(), num=rc_bins)
-    prob = kde.evaluate(grid)
-    # prob = prob / prob.sum()
-
-    if storage_dict['prob_list'] is not None:
-        storage_dict['prob_list'].append(prob)
-
-    return prob, grid  # Normalize
-
-
-def reweight(rc, metad_traj, cv_columns, v_minus_c_col,
-             rc_bins=20, kt=2.5, kde=False):
+def md_prob(rc, metad_traj, cv_columns, v_minus_c_col=None,
+            rc_bins=20, kt=2.5, kde=False):
     """
     Reweighting biased MD trajectory to unbiased probabilty along
     a given reaction coordinate. Using rbias column from COLVAR to
@@ -48,14 +30,16 @@ def reweight(rc, metad_traj, cv_columns, v_minus_c_col,
     """
     # read in parameters from sgoop object
     colvar = metad_traj[cv_columns].values
-    v_minus_c = metad_traj[v_minus_c_col].values
-
     # calculate rc observable for each frame
     colvar_rc = np.sum(colvar * rc, axis=1)
 
     # calculate frame weights, per Tiwary and Parinello, JCPB 2015 (c(t) method)
-    weights = np.exp(v_minus_c / kt)
-    norm_weights = weights / weights.sum()
+    if v_minus_c_col:
+        v_minus_c = metad_traj[v_minus_c_col].values
+        weights = np.exp(v_minus_c / kt)
+        norm_weights = weights / weights.sum()
+    else:
+        norm_weights = None
 
     if kde:
         # KDE for fine-grained optimization
@@ -261,9 +245,9 @@ def __opt_func(rc, max_cal_traj, metad_traj, cv_cols, v_minus_c_col,
     # normalize
     rc = rc / np.sqrt(np.sum(np.square(rc)))
     # calculate reweighted probability on RC grid
-    prob, grid = reweight(rc, metad_traj, cv_cols,
-                          v_minus_c_col, rc_bins,
-                          kde=kde)
+    prob, grid = md_prob(rc, metad_traj, cv_cols,
+                         v_minus_c_col, rc_bins,
+                         kde=kde)
 
     # get binned rc values from max cal traj
     binned_rc_traj = bin_max_cal(rc, max_cal_traj, grid)
