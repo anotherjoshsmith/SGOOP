@@ -13,9 +13,7 @@ from statsmodels.nonparametric.kde import KDEUnivariate
 
 def reweight(rc, metad_traj, cv_columns, v_minus_c_col, rc_bins=20, kt=2.5):
     """
-    Reweighting biased MD trajectory to unbiased probabilty along
-    a given reaction coordinate. Using rbias column from COLVAR to
-    perform reweighting per Tiwary and Parinello
+    Reweighting biased MD trajectory to unbiased probabilty along a given reaction coordinate. Using rbias column from COLVAR to perform reweighting per Tiwary and Parinello
 
     """
     # read in parameters from sgoop object
@@ -31,9 +29,7 @@ def reweight(rc, metad_traj, cv_columns, v_minus_c_col, rc_bins=20, kt=2.5):
 
     # fit weighted KDE with statsmodels method
     kde = KDEUnivariate(colvar_rc)
-    kde.fit(weights=norm_weights,
-            bw=0.05,
-            fft=False)
+    kde.fit(weights=norm_weights, bw=0.05, fft=False)
 
     # evaluate pdf on a grid to for use in SGOOP
     grid = np.linspace(colvar_rc.min(), colvar.max(), num=rc_bins)

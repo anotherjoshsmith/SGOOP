@@ -20,12 +20,11 @@ import scipy.optimize as opt
 ######################################################################
 
 
-def md_prob(rc, metad_traj, cv_columns, v_minus_c_col=None,
-            rc_bins=20, kt=2.5, kde=False):
+def md_prob(
+    rc, metad_traj, cv_columns, v_minus_c_col=None, rc_bins=20, kt=2.5, kde=False
+):
     """
-    Reweighting biased MD trajectory to unbiased probabilty along
-    a given reaction coordinate. Using rbias column from COLVAR to
-    perform reweighting per Tiwary and Parinello
+    Reweighting biased MD trajectory to unbiased probabilty along a given reaction coordinate. Using rbias column from COLVAR to perform reweighting per Tiwary and Parinello
 
     """
     # read in parameters from sgoop object
@@ -44,9 +43,7 @@ def md_prob(rc, metad_traj, cv_columns, v_minus_c_col=None,
     if kde:
         # KDE for fine-grained optimization
         kde = KDEUnivariate(colvar_rc)
-        kde.fit(weights=norm_weights,
-                bw=0.1,
-                fft=False)
+        kde.fit(weights=norm_weights, bw=0.1, fft=False)
 
         # evaluate pdf on a grid to for use in SGOOP
         # TODO: area under curve between points instead of pdf at point
@@ -57,8 +54,11 @@ def md_prob(rc, metad_traj, cv_columns, v_minus_c_col=None,
 
     # histogram density for coarse optimization (
     hist, bin_edges = np.histogram(
-        colvar_rc, weights=norm_weights, bins=rc_bins, density=True,
-        range=(colvar_rc.min(), colvar_rc.max())
+        colvar_rc,
+        weights=norm_weights,
+        bins=rc_bins,
+        density=True,
+        range=(colvar_rc.min(), colvar_rc.max()),
     )
     # set grid points to center of bins
     bin_width = bin_edges[1] - bin_edges[0]
@@ -71,6 +71,7 @@ def md_prob(rc, metad_traj, cv_columns, v_minus_c_col=None,
 ######################################################################
 ####### Get binned RC value along unbiased traj for MaxCal ###########
 ######################################################################
+
 
 def bin_max_cal(rc, max_cal_traj, grid):
     # project unbiased observables onto
@@ -87,6 +88,7 @@ def bin_max_cal(rc, max_cal_traj, grid):
 ####### Calc transistion matrix from binned RC values from   #########
 ####### unbiased and probability from biased trajectory.     #########
 ######################################################################
+
 
 def mu_factor(binned_rc_traj, p, d):
     # Calculates the prefactor on SGOOP for a given RC
@@ -136,6 +138,7 @@ def transmat(MU, p, d):
 ####### Calc eigenvalues and spectral gap from transition mat ########
 ######################################################################
 
+
 def eigeneval(matrix):
     # Returns eigenvalues, eigenvectors, and negative exponents of eigenvalues
     eigenValues, eigenVectors = np.linalg.eig(matrix)
@@ -162,13 +165,15 @@ def sgoop(p, binned, d, wells, **storage_dict):  # rc was never called
 
     S = transmat(MU, p, d)  # Generating the transition matrix
 
-    eigen_values, eigen_exp = eigeneval(S)  # Calculating eigenvalues and vectors for the transition matrix
-    if storage_dict.get('ev_list') is not None:
-        storage_dict['ev_list'].append(eigen_values)
+    eigen_values, eigen_exp = eigeneval(
+        S
+    )  # Calculating eigenvalues and vectors for the transition matrix
+    if storage_dict.get("ev_list") is not None:
+        storage_dict["ev_list"].append(eigen_values)
 
     sg = spectral(wells, eigen_exp, eigen_values)  # Calculating the spectral gap
-    if storage_dict.get('sg_list') is not None:
-        storage_dict['sg_list'].append(sg)
+    if storage_dict.get("sg_list") is not None:
+        storage_dict["sg_list"].append(sg)
 
     return sg
 
@@ -176,6 +181,7 @@ def sgoop(p, binned, d, wells, **storage_dict):  # rc was never called
 #####################################################################
 ####### Evaluate a series of RCs or optimize from starting RC #######
 #####################################################################
+
 
 def rc_eval(single_sgoop):
     # Unbiased SGOOP on a given RC
@@ -201,8 +207,9 @@ def rc_eval(single_sgoop):
     return sg
 
 
-def optimize_rc(rc_0, single_sgoop, niter=50, annealing_temp=0.1,
-                step_size=0.5, kde=False):
+def optimize_rc(
+    rc_0, single_sgoop, niter=50, annealing_temp=0.1, step_size=0.5, kde=False
+):
     """
     Calculate optimal RC given an initial estimate for the coefficients
     and a Sgoop object containing a COLVAR file with CVs tracked over
@@ -226,28 +233,51 @@ def optimize_rc(rc_0, single_sgoop, niter=50, annealing_temp=0.1,
     storage_dict = single_sgoop.storage_dict
 
     minimizer_kwargs = {
-        "method": 'BFGS',
+        "method": "BFGS",
         "options": {
             # "maxiter": 10
         },
-        "args": (max_cal_traj, metad_traj, cv_cols, v_minus_c_col,
-                 d, wells, rc_bins, kde, storage_dict)
+        "args": (
+            max_cal_traj,
+            metad_traj,
+            cv_cols,
+            v_minus_c_col,
+            d,
+            wells,
+            rc_bins,
+            kde,
+            storage_dict,
+        ),
     }
 
-    return opt.basinhopping(__opt_func, rc_0,
-                            niter=niter, T=annealing_temp, stepsize=step_size,
-                            minimizer_kwargs=minimizer_kwargs,
-                            disp=True, callback=__print_fun)
+    return opt.basinhopping(
+        __opt_func,
+        rc_0,
+        niter=niter,
+        T=annealing_temp,
+        stepsize=step_size,
+        minimizer_kwargs=minimizer_kwargs,
+        disp=True,
+        callback=__print_fun,
+    )
 
 
-def __opt_func(rc, max_cal_traj, metad_traj, cv_cols, v_minus_c_col,
-                 d, wells, rc_bins, kde, storage_dict):
+def __opt_func(
+    rc,
+    max_cal_traj,
+    metad_traj,
+    cv_cols,
+    v_minus_c_col,
+    d,
+    wells,
+    rc_bins,
+    kde,
+    storage_dict,
+):
     # normalize
     rc = rc / np.sqrt(np.sum(np.square(rc)))
     # calculate reweighted probability on RC grid
-    prob, grid = md_prob(rc, metad_traj, cv_cols,
-                         v_minus_c_col, rc_bins,
-                         kde=kde)
+    prob, grid = md_prob(rc, metad_traj, cv_cols, v_minus_c_col, rc_bins, kde=kde)
 
     # get binned rc values from max cal traj
     binned_rc_traj = bin_max_cal(rc, max_cal_traj, grid)
@@ -260,6 +290,6 @@ def __opt_func(rc, max_cal_traj, metad_traj, cv_cols, v_minus_c_col,
 def __print_fun(x, f, accepted):
     if accepted:
         print(f"RC with spectral gap {-f:} accepted.")
-        print(', '.join([str(coeff) for coeff in x]), '\n')  
+        print(", ".join([str(coeff) for coeff in x]), "\n")
     else:
-        print('')
+        print("")
