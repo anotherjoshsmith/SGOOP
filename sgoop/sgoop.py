@@ -24,7 +24,9 @@ def md_prob(
     rc, metad_traj, cv_columns, v_minus_c_col=None, rc_bins=20, kt=2.5, kde=False
 ):
     """
-    Reweighting biased MD trajectory to unbiased probabilty along a given reaction coordinate. Using rbias column from COLVAR to perform reweighting per Tiwary and Parinello
+    Reweighting biased MD trajectory to unbiased probabilty along
+    a given reaction coordinate. Using rbias column from COLVAR to
+    perform reweighting per Tiwary and Parinello
 
     """
     # read in parameters from sgoop object
