@@ -4,11 +4,30 @@ import pandas as pd
 
 def read_plumed_file(filename):
     """
-    Read PLUMED output files into pandas DataFrame, with colvars/bias column names
-    and time indices.
+    Read PLUMED output files into pandas DataFrame.
 
-    :param filename:
-    :return: pd.DataFrame
+    Column names are parsed from the header of the Plumed file (e.g. COLVAR or HILLS)
+    and indices are taken from the time column of the Plumed file.
+
+    Parameters
+    ----------
+    filename : string
+        Name of the plumed file that contains collective variable data
+        (e.g. HILLS or COLVAR)
+
+    Returns
+    -------
+    data : pd.DataFrame
+        Pandas DataFrame with column names parsed from CV/bias labels in the plumed file
+        header and time column used for the index.
+
+    Examples
+    --------
+    Read COLVAR file from a MetaD simulation into a DataFrame named metad_traj.
+
+    >>> metad_traj = read_plumed_file('COLVAR')
+    >>> metad_traj.head()
+    # todo: finish example with output
     """
     if filename is None:
         return None
@@ -58,4 +77,28 @@ class Sgoop:
 
 
 def load(max_cal_colvar, metad_colvar=None, **kwargs):
+    """
+        Load SGOOP object from Plumed output.
+
+        Parameters
+        ----------
+        max_cal_colvar : string
+            Name of the plumed CV file (e.g. COLVAR) from unbiased simulation, to be
+            used for MaxCal calculation.
+        metad_colvar : string, None
+            Name of the plumed CV file (e.g. COLVAR) from MetaD biased simulation, to
+            be used for potential of mean force calculation.
+        **kwargs : dict
+            Keyword arguments associated with the parameters for SGOOP analysis.
+
+        Returns
+        -------
+        Sgoop : object
+            Instance of the Sgoop class, designed to store the data and parameters to
+            be used for the SGOOP calculation.
+
+        Examples
+        --------
+        # todo: finish example with output
+        """
     return Sgoop(max_cal_colvar, metad_colvar, **kwargs)
