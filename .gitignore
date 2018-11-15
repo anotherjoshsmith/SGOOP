@@ -1,5 +1,5 @@
 .env/
 .idea/
 .ipynb_checkpoints/
-.egg-info/
+sgoop.egg-info/
 __pycache__/
