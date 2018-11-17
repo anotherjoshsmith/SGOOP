@@ -118,7 +118,7 @@ def transmat(MU, p, d):
     # Generates transition matrix
     S = np.zeros([len(p), len(p)])
     # Non diagonal terms
-    # IFF the loop is necessary, we should build S and calculate D (aka MU) at the same time
+    # IFF the loop is necessary, we should build S and calculate D (aka MU) at once
     for j in range(len(p)):
         for i in range(len(p)):
             if (p[i] != 0) and (np.abs(i - j) <= d and (i != j)):
