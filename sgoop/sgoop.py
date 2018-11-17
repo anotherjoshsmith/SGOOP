@@ -21,7 +21,7 @@ import scipy.optimize as opt
 
 
 def md_prob(
-    rc, metad_traj, cv_columns, v_minus_c_col=None, rc_bins=20, kt=2.5, kde=False
+    rc, metad_traj, cv_columns, v_minus_c_col=None, rc_bins=20, kde=False, kt=2.5,
 ):
     """
     Reweighting biased MD trajectory to unbiased probabilty along
@@ -160,23 +160,16 @@ def spectral(wells, eigen_exp, eigen_values):
         return 0
 
 
-def sgoop(p, binned, d, wells, **storage_dict):  # rc was never called
+def sgoop(p, binned, d, wells):  # rc was never called
     # SGOOP for a given probability density on a given RC
     # Start here when using probability from an external source
-    MU = mu_factor(binned, p, d)  # Calculated with MaxCal approach
-
-    S = transmat(MU, p, d)  # Generating the transition matrix
-
-    eigen_values, eigen_exp = eigeneval(
-        S
-    )  # Calculating eigenvalues and vectors for the transition matrix
-    if storage_dict.get("ev_list") is not None:
-        storage_dict["ev_list"].append(eigen_values)
-
+    # calculate mu with MaxCal approach
+    MU = mu_factor(binned, p, d)
+    # Generating the transition matrix
+    S = transmat(MU, p, d)
+    # Calculating eigenvalues and vectors for the transition matrix
+    eigen_values, eigen_exp = eigeneval(S)
     sg = spectral(wells, eigen_exp, eigen_values)  # Calculating the spectral gap
-    if storage_dict.get("sg_list") is not None:
-        storage_dict["sg_list"].append(sg)
-
     return sg
 
 
@@ -185,14 +178,12 @@ def sgoop(p, binned, d, wells, **storage_dict):  # rc was never called
 #####################################################################
 
 
-def rc_eval(single_sgoop):
+def rc_eval(max_cal_traj, sgoop_dict):
     # Unbiased SGOOP on a given RC
-    rc = single_sgoop.rc
-    max_cal_traj = single_sgoop.max_cal_traj
-    rc_bins = single_sgoop.rc_bins
-    wells = single_sgoop.wells
-    d = single_sgoop.d
-    storage_lists = single_sgoop.storage_dict
+    rc = sgoop_dict['rc']
+    rc_bins = sgoop_dict['rc_bins']
+    wells = sgoop_dict['wells']
+    d = sgoop_dict['d']
 
     """Save RC for Calculations"""  # why store in list? ahh, maybe for plotting?
     # normalize reaction coordinate vector
@@ -200,17 +191,18 @@ def rc_eval(single_sgoop):
 
     """Probabilities and Index on RC"""
     # TODO: if biased, call biased prob (maybe write that within md_prob)
-    prob, grid = md_prob(rc, max_cal_traj, rc_bins, **storage_lists)
+    prob, grid = md_prob(rc, max_cal_traj, rc_bins)
     binned = bin_max_cal(rc, max_cal_traj, grid)
 
     """Main SGOOP Method"""
-    sg = sgoop(prob, binned, d, wells, **storage_lists)
+    sg = sgoop(prob, binned, d, wells)
 
     return sg
 
 
 def optimize_rc(
-    rc_0, single_sgoop, niter=50, annealing_temp=0.1, step_size=0.5, kde=False
+    rc_0, max_cal_traj, metad_traj, sgoop_dict, niter=50, annealing_temp=0.1,
+    step_size=0.5
 ):
     """
     Calculate optimal RC given an initial estimate for the coefficients
@@ -224,16 +216,7 @@ def optimize_rc(
     :param annealing_temp:
     :return:
     """
-    # unpack sgoop object for reweighting
-    max_cal_traj = single_sgoop.max_cal_traj
-    metad_traj = single_sgoop.metad_traj
-    cv_cols = single_sgoop.cv_cols
-    v_minus_c_col = single_sgoop.v_minus_c_col
-    d = single_sgoop.d
-    wells = single_sgoop.wells
-    rc_bins = single_sgoop.rc_bins
-    storage_dict = single_sgoop.storage_dict
-
+    # pass trajectories and sgoop options through minimizer kwargs
     minimizer_kwargs = {
         "method": "BFGS",
         "options": {
@@ -242,13 +225,12 @@ def optimize_rc(
         "args": (
             max_cal_traj,
             metad_traj,
-            cv_cols,
-            v_minus_c_col,
-            d,
-            wells,
-            rc_bins,
-            kde,
-            storage_dict,
+            sgoop_dict['cv_cols'],
+            sgoop_dict['v_minus_c_col'],
+            sgoop_dict['d'],
+            sgoop_dict['wells'],
+            sgoop_dict['rc_bins'],
+            sgoop_dict['kde'],
         ),
     }
 
@@ -274,17 +256,16 @@ def __opt_func(
     wells,
     rc_bins,
     kde,
-    storage_dict,
 ):
     # normalize
     rc = rc / np.sqrt(np.sum(np.square(rc)))
     # calculate reweighted probability on RC grid
-    prob, grid = md_prob(rc, metad_traj, cv_cols, v_minus_c_col, rc_bins, kde=kde)
+    prob, grid = md_prob(rc, metad_traj, cv_cols, v_minus_c_col, rc_bins, kde)
 
     # get binned rc values from max cal traj
     binned_rc_traj = bin_max_cal(rc, max_cal_traj, grid)
     # calculate spectral gap for given rc and trajectories
-    sg = sgoop(prob, binned_rc_traj, d, wells, **storage_dict)
+    sg = sgoop(prob, binned_rc_traj, d, wells)
     # return negative gap for minimization
     return -sg
 
