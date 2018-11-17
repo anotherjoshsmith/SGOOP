@@ -11,9 +11,8 @@ Original Algorithm: Pratyush Tiwary     ptiwary@umd.edu
 Contributor: Pablo Bravo Collado        ptbravo@uc.cl"""
 
 import numpy as np
-from statsmodels.nonparametric.kde import KDEUnivariate
 import scipy.optimize as opt
-
+import sgoop.analysis as analysis
 
 ######################################################################
 ############ Get probabilities along RC with KDE #####################
@@ -21,51 +20,60 @@ import scipy.optimize as opt
 
 
 def md_prob(
-    rc, metad_traj, cv_columns, v_minus_c_col=None, rc_bins=20, kde=False, kt=2.5,
+    rc, md_traj, cv_columns, v_minus_c_col=None, rc_bins=20, kde=False, kt=2.5,
 ):
     """
+    Calculate probability density along a given reaction coordinate.
+
     Reweighting biased MD trajectory to unbiased probabilty along
     a given reaction coordinate. Using rbias column from COLVAR to
     perform reweighting per Tiwary and Parinello
 
+    Parameters
+    ----------
+    rc : int
+    md_traj : pd.DataFrame
+    cv_columns : List
+    v_minus_c_col : str, None
+    rc_bins : int, 20
+    kde : bool, False
+    kt : float, 2.5
+
+    Returns
+    -------
+    pdf : np.ndarray
+    grid : np.ndarray
+
+    Examples
+    --------
+
+
     """
     # read in parameters from sgoop object
-    colvar = metad_traj[cv_columns].values
+    colvar = md_traj[cv_columns].values
     # calculate rc observable for each frame
     colvar_rc = np.sum(colvar * rc, axis=1)
 
     # calculate frame weights, per Tiwary and Parinello, JCPB 2015 (c(t) method)
     if v_minus_c_col:
-        v_minus_c = metad_traj[v_minus_c_col].values
+        v_minus_c = md_traj[v_minus_c_col].values
         weights = np.exp(v_minus_c / kt)
         norm_weights = weights / weights.sum()
     else:
         norm_weights = None
 
     if kde:
-        # KDE for fine-grained optimization
-        kde = KDEUnivariate(colvar_rc)
-        kde.fit(weights=norm_weights, bw=0.1, fft=False)
-
-        # evaluate pdf on a grid to for use in SGOOP
-        # TODO: area under curve between points instead of pdf at point
+        # evaluate pdf on a grid using KDE with Gaussian kernel
         grid = np.linspace(colvar_rc.min(), colvar_rc.max(), num=rc_bins)
-        pdf = kde.evaluate(grid)
-
+        pdf = analysis.gaussian_density_estimation(colvar_rc, norm_weights, grid)
         return pdf, grid
-
-    # histogram density for coarse optimization (
-    hist, bin_edges = np.histogram(
-        colvar_rc,
-        weights=norm_weights,
-        bins=rc_bins,
-        density=True,
-        range=(colvar_rc.min(), colvar_rc.max()),
+    # evaluate pdf using histograms
+    pdf, bin_edges = analysis.histogram_density_estimation(
+        colvar_rc, norm_weights, rc_bins
     )
     # set grid points to center of bins
     bin_width = bin_edges[1] - bin_edges[0]
     grid = bin_edges[:-1] + bin_width
-    pdf = hist
 
     return pdf, grid
 
