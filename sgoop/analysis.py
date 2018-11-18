@@ -63,9 +63,31 @@ def histogram_density_estimation(samples, weights, bins):
     return hist, bin_edges
 
 
-def find_closest_points(sample, points):
-    binned = np.zeros_like(sample)
-    for idx, val in enumerate(sample):
-        binned[idx] = np.abs(points - val).argmin()
+def find_closest_points(sequence, points):
+    points_idx = np.zeros_like(sequence)
+    for idx, val in enumerate(sequence):
+        points_idx[idx] = np.abs(points - val).argmin()
+    return points_idx
 
-    return binned
+
+def avg_neighbor_transitions(sequence, num_neighbors):
+    transitions = (np.abs(sequence[1:] - sequence[:-1]) <= num_neighbors)
+    return np.sum(transitions) / len(sequence)
+
+
+def probability_matrix(p, d):
+    prob_matrix = np.ones([len(p), len(p)]) * p
+    multiplied = np.sqrt(prob_matrix * prob_matrix.T)
+    denominator = 0
+    with np.errstate(divide='ignore', invalid='ignore'):
+        divided = np.sqrt(prob_matrix / prob_matrix.T)
+    matrix = np.zeros_like(divided)
+    for idx in range(-d, d + 1):
+        if idx != 0:
+            # sum over multiplied offset axis for denominator
+            denominator += np.trace(multiplied, offset=idx)
+            # assign divided offset axis to matrix
+            diag = np.diagonal(divided, offset=idx)
+            matrix += np.diagflat(diag, k=idx)
+
+    return denominator, matrix

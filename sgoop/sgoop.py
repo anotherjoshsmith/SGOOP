@@ -112,38 +112,13 @@ def bin_max_cal(rc, max_cal_traj, grid):
 ####### unbiased and probability from biased trajectory.     #########
 ######################################################################
 
+def transition_matrix(binned_rc_traj, p, d, diffusivity=None):
+    n = diffusivity
+    if not n:
+        n = analysis.avg_neighbor_transitions(binned_rc_traj, d)
 
-def mu_factor(binned_rc_traj, p, d):
-    # Calculates the prefactor on SGOOP for a given RC
-    # Returns the mu factor associated with the RC
-    # NOTE: mu factor depends on the choice of RC!
-    # <N>, number of neighbouring transitions on each RC
-    J = 0
-    N_mean = 0
-    for I in binned_rc_traj:
-        N_mean += (np.abs(I - J) <= d) * 1
-        J = np.copy(I)
-    N_mean = N_mean / len(binned_rc_traj)
-
-    D = 0
-    for j in range(len(p)):
-        for i in range(len(p)):
-            if (np.abs(i - j) <= d) and (i != j):  # only count if we're neighbors?
-                D += np.sqrt(p[j] * p[i])
-
-    MU = N_mean / D
-    return MU
-
-
-def transmat(MU, p, d):
-    # Generates transition matrix
-    S = np.zeros([len(p), len(p)])
-    # Non diagonal terms
-    # IFF the loop is necessary, we should build S and calculate D (aka MU) at once
-    for j in range(len(p)):
-        for i in range(len(p)):
-            if (p[i] != 0) and (np.abs(i - j) <= d and (i != j)):
-                S[i, j] = MU * np.sqrt(p[j] / p[i])
+    denominator, prob_matrix = analysis.probability_matrix(p, d)
+    matrix = n / denominator * prob_matrix
 
     """...we can now calculate the eigenvalues of the
     full transition matrix K, where Knm = −kmn for 
@@ -151,10 +126,9 @@ def transmat(MU, p, d):
     for i in range(len(p)):
         # negate diagonal terms, which should be positive
         # after the next operation
-        S[i, i] = -S.sum(1)[i]
-    S = -np.transpose(S)  # negate and transpose
-
-    return S
+        matrix[i, i] = -matrix.sum(1)[i]
+    trans_mat = np.ma.fix_invalid(matrix, copy=False, fill_value=0)
+    return -np.transpose(trans_mat)  # negate and transpose
 
 
 ######################################################################
@@ -184,12 +158,11 @@ def spectral(wells, eigen_exp, eigen_values):
 def sgoop(p, binned, d, wells):  # rc was never called
     # SGOOP for a given probability density on a given RC
     # Start here when using probability from an external source
-    # calculate mu with MaxCal approach
-    MU = mu_factor(binned, p, d)
+    # calculate transition matrix with MaxCal approach
     # Generating the transition matrix
-    S = transmat(MU, p, d)
+    trans_mat = transition_matrix(binned, p, d)
     # Calculating eigenvalues and vectors for the transition matrix
-    eigen_values, eigen_exp = eigeneval(S)
+    eigen_values, eigen_exp = eigeneval(trans_mat)
     sg = spectral(wells, eigen_exp, eigen_values)  # Calculating the spectral gap
     return sg
 
