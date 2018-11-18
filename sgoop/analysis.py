@@ -61,3 +61,11 @@ def histogram_density_estimation(samples, weights, bins):
         range=hist_range,
     )
     return hist, bin_edges
+
+
+def find_closest_points(sample, points):
+    binned = np.zeros_like(sample)
+    for idx, val in enumerate(sample):
+        binned[idx] = np.abs(points - val).argmin()
+
+    return binned

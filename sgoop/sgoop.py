@@ -84,13 +84,26 @@ def md_prob(
 
 
 def bin_max_cal(rc, max_cal_traj, grid):
+    """
+    Calculate Reaction Coordinate bin index for each frame in max_cal_traj.
+
+    Parameters
+    ----------
+    rc : np.ndarray
+        Array of coefficients for one-dimensional reaction coordinate.
+    max_cal_traj : pd.DataFrame
+        DataFrame storing COLVAR data from MaxCal trajectory.
+    grid : np.ndarray
+        Array of RC values at the center of each rc_bin.
+
+    Returns
+    ----------
+    binned : np.ndarray
+
+    """
     # project unbiased observables onto
     proj = np.sum(max_cal_traj * rc, axis=1).values
-
-    binned = np.zeros_like(proj)
-    for idx, val in enumerate(proj):
-        binned[idx] = np.abs(grid - val).argmin()
-
+    binned = analysis.find_closest_points(proj, grid)
     return binned
 
 
