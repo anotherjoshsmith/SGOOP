@@ -87,7 +87,7 @@ def probability_matrix(p, d):
             diag = np.diagonal(divided, offset=idx)
             matrix += np.diagflat(diag, k=idx)
 
-    return denominator, matrix
+    return matrix / denominator
 
 
 def sorted_eigenvalues(matrix):
