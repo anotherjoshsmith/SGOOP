@@ -5,7 +5,7 @@ from sgoop.analysis import find_closest_points
 from sgoop.analysis import avg_neighbor_transitions
 from sgoop.analysis import probability_matrix
 from sgoop.analysis import sorted_eigenvalues
-# from sgoop.analysis import spectral_gap
+from sgoop.analysis import spectral_gap
 
 
 def test_gaussian_denisty_estimation():
@@ -108,4 +108,14 @@ def test_sorted_eigenvalues():
 
 
 def test_spectral_gap():
-    assert True
+    eigenvalues = np.array(
+        [-3.96933961e-06,
+         3.17075011e-01,
+         9.51439139e-01,
+         1.68900194e+00,
+         2.30375088e+00]
+    )
+
+    actual = spectral_gap(eigenvalues, 2)
+    expected = 0.3420912746899744
+    assert np.allclose(actual, expected)
