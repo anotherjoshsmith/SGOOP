@@ -114,19 +114,8 @@ def transition_matrix(binned_rc_traj, p, d, diffusivity=None):
     n = diffusivity
     if not n:
         n = analysis.avg_neighbor_transitions(binned_rc_traj, d)
-
     prob_matrix = analysis.probability_matrix(p, d)
-    matrix = n * prob_matrix
-
-    """...we can now calculate the eigenvalues of the
-    full transition matrix K, where Knm = −kmn for 
-    m != n and Kmm = sum_m!=n(kmn)."""
-    for i in range(len(p)):
-        # negate diagonal terms, which should be positive
-        # after the next operation
-        matrix[i, i] = -matrix.sum(1)[i]
-    trans_mat = np.ma.fix_invalid(matrix, copy=False, fill_value=0)
-    return -np.transpose(trans_mat)  # negate and transpose
+    return n * prob_matrix  # negate and transpose
 
 
 # #####################################################################

@@ -87,7 +87,13 @@ def probability_matrix(p, d):
             diag = np.diagonal(divided, offset=idx)
             matrix += np.diagflat(diag, k=idx)
 
-    return matrix / denominator
+    matrix /= denominator
+    for i in range(len(p)):
+        # negate diagonal terms, which should be positive
+        # after the next operation
+        matrix[i, i] = -matrix.sum(1)[i]
+    trans_mat = np.ma.fix_invalid(matrix, copy=False, fill_value=0)
+    return -np.transpose(trans_mat)
 
 
 def sorted_eigenvalues(matrix):

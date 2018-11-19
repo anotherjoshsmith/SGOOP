@@ -73,26 +73,38 @@ def test_avg_neighbor_transitions():
 
 def test_probability_matrix():
     p = np.array([0.06764343, 0.13525117, 0.20287675, 0.27039527, 0.29481024])
-
+    # test that diagonal elements are nonnegative
     matrix = probability_matrix(p, 1)
     actual_diag_0 = np.diagonal(matrix)
-    assert np.allclose(actual_diag_0, 0.0)
-
+    assert np.all(actual_diag_0 > 0.0)
+    # test off diagonal elements negative and equal to expected
     actual_diag_1 = np.diagonal(matrix, offset=1)
-    expected_diag_1 = np.array([0.90893026, 0.78726054, 0.74208946, 0.67118864])
+    expected_diag_1 = np.array(
+        [-0.45458505479, -0.52484037126, -0.55678746909, -0.61560355788]
+    )
+    assert np.all(actual_diag_1 < 0.0)
     assert np.allclose(actual_diag_1, expected_diag_1)
 
 
 def test_sorted_eigenvalues():
     matrix = np.array(
-        [[7, -2, 2],
-         [5, -4, 3],
-         [0, 0.5, 0.1]]
+        [[0.908930, -0.454585, 0.0, 0.0, 0.0],
+         [-0.908930, 1.24184, -0.524840, 0.0, 0.0],
+         [0.0, -0.787260, 1.26692, -0.556787, 0.0],
+         [0.0, 0.0, -0.742089, 1.22797, -0.615603],
+         [0.0, 0.0, 0.0, -0.671188, 0.615603]]
     )
-
+    # test that eigenvalues are calculated as expected
     actual = sorted_eigenvalues(matrix)
-    expected = np.array([-3.32810807, 0.36156303, 6.06654505])
+    expected = np.array(
+        [-3.96933961e-06,
+         3.17075011e-01,
+         9.51439139e-01,
+         1.68900194e+00,
+         2.30375088e+00]
+    )
     assert np.allclose(actual, expected)
+    assert np.isclose(np.exp(-actual[0]), 1.0)
 
 
 def test_spectral_gap():
