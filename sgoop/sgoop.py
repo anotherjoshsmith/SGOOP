@@ -18,9 +18,7 @@ import sgoop.analysis as analysis
 # #####################################################################
 # ########### Get probabilities along RC with KDE #####################
 # #####################################################################
-def md_prob(
-    rc, md_traj, cv_columns, v_minus_c_col=None, rc_bins=20, kde=False, kt=2.5,
-):
+def md_prob(rc, md_traj, cv_columns, v_minus_c_col=None, rc_bins=20, kde=False, kt=2.5):
     """
     Calculate probability density along a given reaction coordinate.
 
@@ -111,6 +109,7 @@ def bin_max_cal(rc, max_cal_traj, grid):
 # ###### unbiased and probability from biased trajectory.     #########
 # #####################################################################
 
+
 def transition_matrix(binned_rc_traj, p, d, diffusivity=None):
     n = diffusivity
     if not n:
@@ -134,9 +133,10 @@ def transition_matrix(binned_rc_traj, p, d, diffusivity=None):
 # ###### Calc eigenvalues and spectral gap from transition mat ########
 # #####################################################################
 
+
 def sgoop(p, binned, d, wells):
     # generate transition matrix
-    with np.errstate(divide='ignore', invalid='ignore'):
+    with np.errstate(divide="ignore", invalid="ignore"):
         trans_mat = transition_matrix(binned, p, d)
     # calculate eigenvalues and spectral gap
     eigen_values = analysis.sorted_eigenvalues(trans_mat)
@@ -149,10 +149,10 @@ def sgoop(p, binned, d, wells):
 # ####################################################################
 def rc_eval(max_cal_traj, sgoop_dict):
     # Unbiased SGOOP on a given RC
-    rc = sgoop_dict['rc']
-    rc_bins = sgoop_dict['rc_bins']
-    wells = sgoop_dict['wells']
-    d = sgoop_dict['d']
+    rc = sgoop_dict["rc"]
+    rc_bins = sgoop_dict["rc_bins"]
+    wells = sgoop_dict["wells"]
+    d = sgoop_dict["d"]
 
     """Save RC for Calculations"""  # why store in list? ahh, maybe for plotting?
     # normalize reaction coordinate vector
@@ -170,7 +170,13 @@ def rc_eval(max_cal_traj, sgoop_dict):
 
 
 def optimize_rc(
-    rc_0, max_cal_traj, metad_traj, sgoop_dict, niter=50, annealing_temp=0.1, step_size=0.5,
+    rc_0,
+    max_cal_traj,
+    metad_traj,
+    sgoop_dict,
+    niter=50,
+    annealing_temp=0.1,
+    step_size=0.5,
 ):
     """
     Calculate optimal RC given an initial estimate for the coefficients
@@ -193,12 +199,12 @@ def optimize_rc(
         "args": (
             max_cal_traj,
             metad_traj,
-            sgoop_dict['cv_cols'],
-            sgoop_dict['v_minus_c_col'],
-            sgoop_dict['d'],
-            sgoop_dict['wells'],
-            sgoop_dict['rc_bins'],
-            sgoop_dict['kde'],
+            sgoop_dict["cv_cols"],
+            sgoop_dict["v_minus_c_col"],
+            sgoop_dict["d"],
+            sgoop_dict["wells"],
+            sgoop_dict["rc_bins"],
+            sgoop_dict["kde"],
         ),
     }
 
@@ -215,15 +221,7 @@ def optimize_rc(
 
 
 def __opt_func(
-    rc,
-    max_cal_traj,
-    metad_traj,
-    cv_cols,
-    v_minus_c_col,
-    d,
-    wells,
-    rc_bins,
-    kde,
+    rc, max_cal_traj, metad_traj, cv_cols, v_minus_c_col, d, wells, rc_bins, kde
 ):
     # normalize
     rc = rc / np.sqrt(np.sum(np.square(rc)))

@@ -54,11 +54,7 @@ def histogram_density_estimation(samples, weights, bins):
     # histogram density for coarse optimization
     hist_range = (samples.min(), samples.max())
     hist, bin_edges = np.histogram(
-        samples,
-        weights=weights,
-        bins=bins,
-        density=True,
-        range=hist_range,
+        samples, weights=weights, bins=bins, density=True, range=hist_range
     )
     return hist, bin_edges
 
@@ -71,7 +67,7 @@ def find_closest_points(sequence, points):
 
 
 def avg_neighbor_transitions(sequence, num_neighbors):
-    transitions = (np.abs(sequence[1:] - sequence[:-1]) <= num_neighbors)
+    transitions = np.abs(sequence[1:] - sequence[:-1]) <= num_neighbors
     return np.sum(transitions) / len(sequence)
 
 
