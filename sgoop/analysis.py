@@ -79,8 +79,7 @@ def probability_matrix(p, d):
     prob_matrix = np.ones([len(p), len(p)]) * p
     multiplied = np.sqrt(prob_matrix * prob_matrix.T)
     denominator = 0
-    with np.errstate(divide='ignore', invalid='ignore'):
-        divided = np.sqrt(prob_matrix / prob_matrix.T)
+    divided = np.sqrt(prob_matrix / prob_matrix.T)
     matrix = np.zeros_like(divided)
     for idx in range(-d, d + 1):
         if idx != 0:

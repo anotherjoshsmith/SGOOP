@@ -136,19 +136,17 @@ def transition_matrix(binned_rc_traj, p, d, diffusivity=None):
 ######################################################################
 
 
-def eigeneval(matrix):
+def sorted_eigenvalues(matrix):
     # Returns eigenvalues, eigenvectors, and negative exponents of eigenvalues
-    eigenValues, eigenVectors = np.linalg.eig(matrix)
-    idx = eigenValues.argsort()  # Sorting by eigenvalues
-    eigenValues = eigenValues[idx]  # Order eigenvalues
-    eigenExp = np.exp(-eigenValues)  # Calculate exponentials
-    return eigenValues, eigenExp
+    eigenvalues, eigenvectors = np.linalg.eig(matrix)
+    eigenvalues.sort()  # Order eigenvalues
+    return eigenvalues
 
 
-def spectral(wells, eigen_exp, eigen_values):
-    SEE_pos = eigen_exp[(eigen_values > -1e-10)]  # Removing negative eigenvalues
-    SEE_pos = SEE_pos[SEE_pos > 0]  # Removing negative exponents
-    gaps = SEE_pos[:-1] - SEE_pos[1:]
+def spectral_gap(eigen_values, wells):
+    eigen_exp = np.exp(-eigen_values)
+    gaps = eigen_exp[:-1] - eigen_exp[1:]
+
     if np.shape(gaps)[0] >= wells:
         return gaps[wells - 1]
     else:
@@ -160,10 +158,11 @@ def sgoop(p, binned, d, wells):  # rc was never called
     # Start here when using probability from an external source
     # calculate transition matrix with MaxCal approach
     # Generating the transition matrix
-    trans_mat = transition_matrix(binned, p, d)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        trans_mat = transition_matrix(binned, p, d)
     # Calculating eigenvalues and vectors for the transition matrix
-    eigen_values, eigen_exp = eigeneval(trans_mat)
-    sg = spectral(wells, eigen_exp, eigen_values)  # Calculating the spectral gap
+    eigen_values = sorted_eigenvalues(trans_mat)
+    sg = spectral_gap(eigen_values, wells)  # Calculating the spectral gap
     return sg
 
 
@@ -255,7 +254,6 @@ def __opt_func(
     rc = rc / np.sqrt(np.sum(np.square(rc)))
     # calculate reweighted probability on RC grid
     prob, grid = md_prob(rc, metad_traj, cv_cols, v_minus_c_col, rc_bins, kde)
-
     # get binned rc values from max cal traj
     binned_rc_traj = bin_max_cal(rc, max_cal_traj, grid)
     # calculate spectral gap for given rc and trajectories
