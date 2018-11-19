@@ -2,7 +2,7 @@ import numpy as np
 from sgoop.analysis import gaussian_density_estimation
 from sgoop.analysis import histogram_density_estimation
 from sgoop.analysis import find_closest_points
-# from sgoop.analysis import avg_neighbor_transitions
+from sgoop.analysis import avg_neighbor_transitions
 # from sgoop.analysis import probability_matrix
 # from sgoop.analysis import sorted_eigenvalues
 # from sgoop.analysis import spectral_gap
@@ -60,7 +60,15 @@ def test_find_closest_points():
 
 
 def test_avg_neighbor_transitions():
-    assert True
+    sequence = np.array([0, 0, 2, 3, 3, 0, 0, 2, 3, 3])
+    # calc transitions for 1 nearest neighbor
+    actual = avg_neighbor_transitions(sequence, 1)
+    expected = 0.6666666666666666
+    assert np.allclose(actual, expected)
+
+    actual = avg_neighbor_transitions(sequence, 5)
+    expected = 1.0
+    assert np.allclose(actual, expected)
 
 
 def test_probability_matrix():
