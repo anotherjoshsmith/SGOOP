@@ -13,8 +13,11 @@ install:
   - pip install -r requirements-dev.txt
 
 script:
-  - coverage run -m pytest  # Run the tests and check for test coverage.
-  - coverage report -m  # Generate test coverage report.
-  - codecov  # Upload the report to codecov.
   - flake8 sgoop --max-line-length=88 --ignore=W291,E266,E203,W605  # Enforce code style (but relax line length limit a bit).
   # - make -C docs html  # Build the documentation.
+  - mkdir for_test
+  - cd for_test
+  - py.test --pyargs sgoop --cov-report term-missing --cov=sgoop
+  
+ after_success:
+ - coveralls
