@@ -1,6 +1,7 @@
 import numpy as np
 from sgoop.analysis import gaussian_density_estimation
 from sgoop.analysis import histogram_density_estimation
+from sgoop.analysis import find_closest_points
 # from sgoop.analysis import avg_neighbor_transitions
 # from sgoop.analysis import probability_matrix
 # from sgoop.analysis import sorted_eigenvalues
@@ -49,7 +50,13 @@ def test_histogram_density_estimation():
 
 
 def test_find_closest_points():
-    assert True
+    sequence = np.array([0, 1, 2, 3, 4, 0, 1, 2, 3, 4])
+    points = np.array([0.7, 1.4, 2.1, 2.8])
+    actual = find_closest_points(sequence, points)
+    expected = np.array([0, 0, 2, 3, 3, 0, 0, 2, 3, 3])
+
+    assert len(actual) == len(sequence)
+    assert np.allclose(actual, expected)
 
 
 def test_avg_neighbor_transitions():
