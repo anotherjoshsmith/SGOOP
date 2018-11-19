@@ -2,7 +2,7 @@ import numpy as np
 from statsmodels.nonparametric.kde import KDEUnivariate
 
 
-def gaussian_density_estimation(samples, weights, grid):
+def gaussian_density_estimation(samples, weights, grid, h=0.1):
     """
     Kernel density estimation with Gaussian kernel.
 
@@ -15,7 +15,9 @@ def gaussian_density_estimation(samples, weights, grid):
         Array of sample weights. If None, unweighted KDE will be performed.
     grid : np.ndarray
         Grid points at which the KDE function should be evaluated.
-
+    h : float
+        Bandwidth parameter for kernel density estimation. Associated with
+        sigma in the case of a Gaussian kernel.
     Returns
     ----------
     np.ndarray
@@ -23,7 +25,7 @@ def gaussian_density_estimation(samples, weights, grid):
     """
     # KDE for fine-grained optimization
     kde = KDEUnivariate(samples)
-    kde.fit(weights=weights, bw=0.1, fft=False)
+    kde.fit(weights=weights, bw=h, fft=False)
 
     # evaluate pdf on a grid to for use in SGOOP
     # TODO: area under curve between points instead of pdf at point
