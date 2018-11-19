@@ -20,4 +20,4 @@ script:
   - py.test --pyargs sgoop --cov-report term-missing --cov=sgoop
   
  after_success:
- - coveralls
+  - coveralls
