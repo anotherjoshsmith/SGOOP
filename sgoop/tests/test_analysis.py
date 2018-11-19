@@ -4,7 +4,7 @@ from sgoop.analysis import histogram_density_estimation
 from sgoop.analysis import find_closest_points
 from sgoop.analysis import avg_neighbor_transitions
 from sgoop.analysis import probability_matrix
-# from sgoop.analysis import sorted_eigenvalues
+from sgoop.analysis import sorted_eigenvalues
 # from sgoop.analysis import spectral_gap
 
 
@@ -84,7 +84,15 @@ def test_probability_matrix():
 
 
 def test_sorted_eigenvalues():
-    assert True
+    matrix = np.array(
+        [[7, -2, 2],
+         [5, -4, 3],
+         [0, 0.5, 0.1]]
+    )
+
+    actual = sorted_eigenvalues(matrix)
+    expected = np.array([-3.32810807, 0.36156303, 6.06654505])
+    assert np.allclose(actual, expected)
 
 
 def test_spectral_gap():
