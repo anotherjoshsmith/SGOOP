@@ -90,3 +90,20 @@ def probability_matrix(p, d):
             matrix += np.diagflat(diag, k=idx)
 
     return denominator, matrix
+
+
+def sorted_eigenvalues(matrix):
+    # Returns eigenvalues, eigenvectors, and negative exponents of eigenvalues
+    eigenvalues, eigenvectors = np.linalg.eig(matrix)
+    eigenvalues.sort()  # Order eigenvalues
+    return eigenvalues
+
+
+def spectral_gap(eigen_values, wells):
+    eigen_exp = np.exp(-eigen_values)
+    gaps = eigen_exp[:-1] - eigen_exp[1:]
+
+    if np.shape(gaps)[0] >= wells:
+        return gaps[wells - 1]
+    else:
+        return 0

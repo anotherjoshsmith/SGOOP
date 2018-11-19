@@ -14,11 +14,10 @@ import numpy as np
 import scipy.optimize as opt
 import sgoop.analysis as analysis
 
-######################################################################
-############ Get probabilities along RC with KDE #####################
-######################################################################
 
-
+# #####################################################################
+# ########### Get probabilities along RC with KDE #####################
+# #####################################################################
 def md_prob(
     rc, md_traj, cv_columns, v_minus_c_col=None, rc_bins=20, kde=False, kt=2.5,
 ):
@@ -78,9 +77,9 @@ def md_prob(
     return pdf, grid
 
 
-######################################################################
-####### Get binned RC value along unbiased traj for MaxCal ###########
-######################################################################
+# #####################################################################
+# ###### Get binned RC value along unbiased traj for MaxCal ###########
+# #####################################################################
 
 
 def bin_max_cal(rc, max_cal_traj, grid):
@@ -107,10 +106,10 @@ def bin_max_cal(rc, max_cal_traj, grid):
     return binned
 
 
-######################################################################
-####### Calc transistion matrix from binned RC values from   #########
-####### unbiased and probability from biased trajectory.     #########
-######################################################################
+# #####################################################################
+# ###### Calc transistion matrix from binned RC values from   #########
+# ###### unbiased and probability from biased trajectory.     #########
+# #####################################################################
 
 def transition_matrix(binned_rc_traj, p, d, diffusivity=None):
     n = diffusivity
@@ -131,46 +130,23 @@ def transition_matrix(binned_rc_traj, p, d, diffusivity=None):
     return -np.transpose(trans_mat)  # negate and transpose
 
 
-######################################################################
-####### Calc eigenvalues and spectral gap from transition mat ########
-######################################################################
+# #####################################################################
+# ###### Calc eigenvalues and spectral gap from transition mat ########
+# #####################################################################
 
-
-def sorted_eigenvalues(matrix):
-    # Returns eigenvalues, eigenvectors, and negative exponents of eigenvalues
-    eigenvalues, eigenvectors = np.linalg.eig(matrix)
-    eigenvalues.sort()  # Order eigenvalues
-    return eigenvalues
-
-
-def spectral_gap(eigen_values, wells):
-    eigen_exp = np.exp(-eigen_values)
-    gaps = eigen_exp[:-1] - eigen_exp[1:]
-
-    if np.shape(gaps)[0] >= wells:
-        return gaps[wells - 1]
-    else:
-        return 0
-
-
-def sgoop(p, binned, d, wells):  # rc was never called
-    # SGOOP for a given probability density on a given RC
-    # Start here when using probability from an external source
-    # calculate transition matrix with MaxCal approach
-    # Generating the transition matrix
+def sgoop(p, binned, d, wells):
+    # generate transition matrix
     with np.errstate(divide='ignore', invalid='ignore'):
         trans_mat = transition_matrix(binned, p, d)
-    # Calculating eigenvalues and vectors for the transition matrix
-    eigen_values = sorted_eigenvalues(trans_mat)
-    sg = spectral_gap(eigen_values, wells)  # Calculating the spectral gap
+    # calculate eigenvalues and spectral gap
+    eigen_values = analysis.sorted_eigenvalues(trans_mat)
+    sg = analysis.spectral_gap(eigen_values, wells)
     return sg
 
 
-#####################################################################
-####### Evaluate a series of RCs or optimize from starting RC #######
-#####################################################################
-
-
+# ####################################################################
+# ###### Evaluate a series of RCs or optimize from starting RC #######
+# ####################################################################
 def rc_eval(max_cal_traj, sgoop_dict):
     # Unbiased SGOOP on a given RC
     rc = sgoop_dict['rc']
@@ -194,8 +170,7 @@ def rc_eval(max_cal_traj, sgoop_dict):
 
 
 def optimize_rc(
-    rc_0, max_cal_traj, metad_traj, sgoop_dict, niter=50, annealing_temp=0.1,
-    step_size=0.5
+    rc_0, max_cal_traj, metad_traj, sgoop_dict, niter=50, annealing_temp=0.1, step_size=0.5,
 ):
     """
     Calculate optimal RC given an initial estimate for the coefficients

@@ -3,7 +3,7 @@ import numpy as np
 import sys
 sys.path.append('../../')
 
-from sgoop.containers import read_plumed_file
+from sgoop.utilities import read_plumed_file
 from sgoop.sgoop import optimize_rc
 
 
@@ -43,4 +43,4 @@ print(f'initial RC guess: {x0}')
 ret = optimize_rc(x0, max_cal_traj, metad_traj, sgoop_params, niter=100,
                   annealing_temp=0.01, step_size=1.0)
 
-print(f'Best RC coeffient array: {ret.x}')
+print(f'Best RC coeffient array: {", ".join([str(coeff) for coeff in ret.x])}', "\n")
