@@ -80,7 +80,7 @@ def md_prob(rc, md_traj, cv_columns, v_minus_c_col=None, rc_bins=20, kde=False, 
 # #####################################################################
 
 
-def bin_max_cal(rc, max_cal_traj, grid):
+def bin_max_cal(rc, md_traj, cv_columns, grid):
     """
     Calculate Reaction Coordinate bin index for each frame in max_cal_traj.
 
@@ -98,6 +98,8 @@ def bin_max_cal(rc, max_cal_traj, grid):
     binned : np.ndarray
 
     """
+    # read in parameters from sgoop object
+    max_cal_traj = md_traj[cv_columns].values
     # project unbiased observables onto
     proj = np.sum(max_cal_traj * rc, axis=1).values
     binned = analysis.find_closest_points(proj, grid)
@@ -142,6 +144,7 @@ def rc_eval(max_cal_traj, sgoop_dict):
     rc_bins = sgoop_dict["rc_bins"]
     wells = sgoop_dict["wells"]
     d = sgoop_dict["d"]
+    cv_cols = sgoop_dict["cv_cols"]
 
     """Save RC for Calculations"""  # why store in list? ahh, maybe for plotting?
     # normalize reaction coordinate vector
@@ -150,7 +153,7 @@ def rc_eval(max_cal_traj, sgoop_dict):
     """Probabilities and Index on RC"""
     # TODO: if biased, call biased prob (maybe write that within md_prob)
     prob, grid = md_prob(rc, max_cal_traj, rc_bins)
-    binned = bin_max_cal(rc, max_cal_traj, grid)
+    binned = bin_max_cal(rc, max_cal_traj, cv_cols, grid)
 
     """Main SGOOP Method"""
     sg = sgoop(prob, binned, d, wells)
@@ -217,7 +220,7 @@ def __opt_func(
     # calculate reweighted probability on RC grid
     prob, grid = md_prob(rc, metad_traj, cv_cols, v_minus_c_col, rc_bins, kde)
     # get binned rc values from max cal traj
-    binned_rc_traj = bin_max_cal(rc, max_cal_traj, grid)
+    binned_rc_traj = bin_max_cal(rc, max_cal_traj, cv_cols, grid)
     # calculate spectral gap for given rc and trajectories
     sg = sgoop(prob, binned_rc_traj, d, wells)
     # return negative gap for minimization
