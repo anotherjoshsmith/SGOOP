@@ -88,7 +88,7 @@ def bin_max_cal(rc, md_traj, cv_columns, grid):
     ----------
     rc : np.ndarray
         Array of coefficients for one-dimensional reaction coordinate.
-    max_cal_traj : pd.DataFrame
+    md_traj : pd.DataFrame
         DataFrame storing COLVAR data from MaxCal trajectory.
     grid : np.ndarray
         Array of RC values at the center of each rc_bin.
@@ -99,10 +99,10 @@ def bin_max_cal(rc, md_traj, cv_columns, grid):
 
     """
     # read in parameters from sgoop object
-    max_cal_traj = md_traj[cv_columns].values
-    # project unbiased observables onto
-    proj = np.sum(max_cal_traj * rc, axis=1).values
-    binned = analysis.find_closest_points(proj, grid)
+    colvar = md_traj[cv_columns].values
+    # calculate rc observable for each frame
+    colvar_rc = np.sum(colvar * rc, axis=1)
+    binned = analysis.find_closest_points(colvar_rc, grid)
     return binned
 
 
