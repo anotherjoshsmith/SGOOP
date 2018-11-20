@@ -229,7 +229,8 @@ def __opt_func(
 
 def __print_fun(x, f, accepted):
     if accepted:
+        rc = x / np.sqrt(np.sum(np.square(x)))
         print(f"RC with spectral gap {-f:} accepted.")
-        print(", ".join([str(coeff) for coeff in x]), "\n")
+        print(", ".join([str(coeff) for coeff in rc]), "\n")
     else:
         print("")
