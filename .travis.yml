@@ -16,7 +16,7 @@ script:
   - flake8 sgoop --max-line-length=88 --ignore=W291,E266,E203,W605  # Enforce code style (but relax line length limit a bit).
   # - make -C docs html  # Build the documentation.
   - coverage run -m pytest  # Run the tests and check for test coverage.
-  - coverage report -m --omit=virtualenv/*
+  - coverage report -m --omit=/home/travis/virtualenv/*
   
 after_success:
   - coveralls
