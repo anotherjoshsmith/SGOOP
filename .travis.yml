@@ -13,7 +13,7 @@ install:
   - pip install -r requirements-dev.txt
 
 script:
-  - flake8 sgoop --max-line-length=88 --ignore=W291,E266,E203,W605  # Enforce code style (but relax line length limit a bit).
+  - flake8 sgoop --max-line-length=88 --ignore=W291,E266,E203,W605,W503  # Enforce code style (but relax line length limit a bit).
   # - make -C docs html  # Build the documentation.
   - coverage run --source sgoop -m pytest  # Run the tests and check for test coverage.
   - coverage report --include=sgoop/* -m
