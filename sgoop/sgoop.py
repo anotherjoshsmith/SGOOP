@@ -112,12 +112,15 @@ def bin_max_cal(rc, md_traj, cv_columns, grid):
 # #####################################################################
 
 
-def transition_matrix(binned_rc_traj, p, d, diffusivity=None):
+def get_eigenvalues(binned_rc_traj, p, d, diffusivity=None):
     n = diffusivity
     if not n:
         n = analysis.avg_neighbor_transitions(binned_rc_traj, d)
-    prob_matrix = analysis.probability_matrix(p, d)
-    return n * prob_matrix  # negate and transpose
+    with np.errstate(divide="ignore", invalid="ignore"):
+        prob_matrix = analysis.probability_matrix(p, d)
+    transition_matrix = n * prob_matrix
+    eigenvalues = analysis.sorted_eigenvalues(transition_matrix)
+    return eigenvalues
 
 
 # #####################################################################
@@ -125,11 +128,8 @@ def transition_matrix(binned_rc_traj, p, d, diffusivity=None):
 # #####################################################################
 
 def sgoop(p, binned, d, wells):
-    # generate transition matrix
-    with np.errstate(divide="ignore", invalid="ignore"):
-        trans_mat = transition_matrix(binned, p, d)
     # calculate eigenvalues and spectral gap
-    eigen_values = analysis.sorted_eigenvalues(trans_mat)
+    eigen_values = get_eigenvalues(binned, p, d)
     sg = analysis.spectral_gap(eigen_values, wells)
     return sg
 
@@ -138,7 +138,7 @@ def sgoop(p, binned, d, wells):
 # ###### Evaluate a series of RCs or optimize from starting RC #######
 # ####################################################################
 
-def rc_eval(rc, max_cal_traj, metad_traj, sgoop_dict):
+def rc_eval(rc, max_cal_traj, metad_traj, sgoop_dict, return_eigenvalues=False):
     # Unbiased SGOOP on a given RC
     rc_bins = sgoop_dict["rc_bins"]
     wells = sgoop_dict["wells"]
@@ -153,6 +153,10 @@ def rc_eval(rc, max_cal_traj, metad_traj, sgoop_dict):
 
     # calculate spectral gap
     sg = sgoop(prob, binned, d, wells)
+
+    if return_eigenvalues:
+        eigenvalues = get_eigenvalues(binned, prob, d)
+        return sg, eigenvalues
 
     return sg
 
