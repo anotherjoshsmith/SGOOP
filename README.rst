@@ -5,6 +5,9 @@ Spectral Gap Optimization of Order Parameters
 .. image:: https://img.shields.io/travis/anotherjoshsmith/sgoop.svg
         :target: https://travis-ci.org/anotherjoshsmith/sgoop
 
+.. image:: https://coveralls.io/repos/github/anotherjoshsmith/sgoop/badge.svg?branch=master
+        :target: https://coveralls.io/github/anotherjoshsmith/sgoop?branch=master
+
 .. image:: https://img.shields.io/pypi/v/sgoop.svg
         :target: https://pypi.python.org/pypi/sgoop
 
