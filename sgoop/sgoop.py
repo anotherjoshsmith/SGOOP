@@ -18,6 +18,7 @@ import sgoop.analysis as analysis
 # #####################################################################
 # ########### Get probabilities along RC with KDE #####################
 # #####################################################################
+
 def md_prob(rc, md_traj, cv_columns, v_minus_c_col=None, rc_bins=20, kde=False, kt=2.5):
     """
     Calculate probability density along a given reaction coordinate.
@@ -79,7 +80,6 @@ def md_prob(rc, md_traj, cv_columns, v_minus_c_col=None, rc_bins=20, kde=False, 
 # ###### Get binned RC value along unbiased traj for MaxCal ###########
 # #####################################################################
 
-
 def bin_max_cal(rc, md_traj, cv_columns, grid):
     """
     Calculate Reaction Coordinate bin index for each frame in max_cal_traj.
@@ -124,7 +124,6 @@ def transition_matrix(binned_rc_traj, p, d, diffusivity=None):
 # ###### Calc eigenvalues and spectral gap from transition mat ########
 # #####################################################################
 
-
 def sgoop(p, binned, d, wells):
     # generate transition matrix
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -138,24 +137,21 @@ def sgoop(p, binned, d, wells):
 # ####################################################################
 # ###### Evaluate a series of RCs or optimize from starting RC #######
 # ####################################################################
-def rc_eval(max_cal_traj, sgoop_dict):
+
+def rc_eval(rc, max_cal_traj, metad_traj, sgoop_dict):
     # Unbiased SGOOP on a given RC
-    rc = sgoop_dict["rc"]
     rc_bins = sgoop_dict["rc_bins"]
     wells = sgoop_dict["wells"]
     d = sgoop_dict["d"]
+    kde = sgoop_dict["kde"]
     cv_cols = sgoop_dict["cv_cols"]
+    v_minus_c_col = sgoop_dict["v_minus_c_col"]
 
-    """Save RC for Calculations"""  # why store in list? ahh, maybe for plotting?
-    # normalize reaction coordinate vector
-    rc = rc / np.sqrt(np.sum(np.square(rc)))
-
-    """Probabilities and Index on RC"""
-    # TODO: if biased, call biased prob (maybe write that within md_prob)
-    prob, grid = md_prob(rc, max_cal_traj, rc_bins)
+    # calculate prob for rc bins and binned rc value for MaxCal traj
+    prob, grid = md_prob(rc, metad_traj, cv_cols, v_minus_c_col, rc_bins, kde)
     binned = bin_max_cal(rc, max_cal_traj, cv_cols, grid)
 
-    """Main SGOOP Method"""
+    # calculate spectral gap
     sg = sgoop(prob, binned, d, wells)
 
     return sg
