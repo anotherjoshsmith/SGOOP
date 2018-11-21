@@ -16,19 +16,25 @@ def plot_spectral_gap(opt_rc, prob_traj, sgoop_dict, max_cal_traj=None, trial_rc
     ax = fig.add_subplot(1, 1, 1)
     # plot
     plt.scatter(
-        np.arange(eigenvalues), np.exp(-eigenvalues), label=f"spectral gap = {sg}"
+        np.arange(len(eigenvalues)),
+        np.exp(-eigenvalues),
+        label=f"optimized gap = {sg:.2f}",
     )
 
     if trial_rc is not None:
         sg, eigenvalues = rc_eval(
-            opt_rc, max_cal_traj, prob_traj, sgoop_dict, return_eigenvalues=True
+            trial_rc, max_cal_traj, prob_traj, sgoop_dict, return_eigenvalues=True
         )
 
         # plot
         plt.scatter(
-            np.arange(eigenvalues), np.exp(-eigenvalues), label=f"spectral gap = {sg}"
+            np.arange(len(eigenvalues)),
+            np.exp(-eigenvalues),
+            label=f"trial gap = {sg:.2f}",
+            alpha=0.3,
         )
 
+    plt.legend(frameon=False)
     return ax
 
 
@@ -59,6 +65,7 @@ def plot_pmf(opt_rc, prob_traj, sgoop_dict, trial_rc=None, normalize_grid=False)
             grid = (grid - grid.min()) / (grid.max() - grid.min())
 
         # plot pmf from probability
-        plt.plot(grid, -np.ma.log(prob), label="optimized RC")
+        plt.plot(grid, -np.ma.log(prob), label="trial RC", alpha=0.5)
 
+    plt.legend(frameon=False)
     return ax
