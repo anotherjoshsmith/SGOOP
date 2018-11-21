@@ -113,8 +113,12 @@ def bin_max_cal(rc, md_traj, cv_columns, grid):
 
 
 def get_eigenvalues(binned_rc_traj, p, d, diffusivity=None):
+    if diffusivity is None and binned_rc_traj is None:
+        print('You must supply a MaxCal traj or diffusivity.')
+        return
+
     n = diffusivity
-    if not n:
+    if binned_rc_traj is not None:
         n = analysis.avg_neighbor_transitions(binned_rc_traj, d)
     with np.errstate(divide="ignore", invalid="ignore"):
         prob_matrix = analysis.probability_matrix(p, d)
@@ -127,9 +131,9 @@ def get_eigenvalues(binned_rc_traj, p, d, diffusivity=None):
 # ###### Calc eigenvalues and spectral gap from transition mat ########
 # #####################################################################
 
-def sgoop(p, binned, d, wells):
+def sgoop(p, binned, d, wells, diffusivity=None):
     # calculate eigenvalues and spectral gap
-    eigen_values = get_eigenvalues(binned, p, d)
+    eigen_values = get_eigenvalues(binned, p, d, diffusivity )
     sg = analysis.spectral_gap(eigen_values, wells)
     return sg
 
@@ -146,13 +150,17 @@ def rc_eval(rc, max_cal_traj, metad_traj, sgoop_dict, return_eigenvalues=False):
     kde = sgoop_dict["kde"]
     cv_cols = sgoop_dict["cv_cols"]
     v_minus_c_col = sgoop_dict["v_minus_c_col"]
+    diffusivity = sgoop_dict["diffusivity"]
 
     # calculate prob for rc bins and binned rc value for MaxCal traj
     prob, grid = md_prob(rc, metad_traj, cv_cols, v_minus_c_col, rc_bins, kde)
-    binned = bin_max_cal(rc, max_cal_traj, cv_cols, grid)
+    if max_cal_traj is not None:
+        binned = bin_max_cal(rc, max_cal_traj, cv_cols, grid)
+    else:
+        binned = None
 
     # calculate spectral gap
-    sg = sgoop(prob, binned, d, wells)
+    sg = sgoop(prob, binned, d, wells, diffusivity)
 
     if return_eigenvalues:
         eigenvalues = get_eigenvalues(binned, prob, d)
@@ -197,6 +205,7 @@ def optimize_rc(
             sgoop_dict["wells"],
             sgoop_dict["rc_bins"],
             sgoop_dict["kde"],
+            sgoop_dict["diffusivity"]
         ),
     }
 
@@ -213,16 +222,19 @@ def optimize_rc(
 
 
 def __opt_func(
-    rc, max_cal_traj, metad_traj, cv_cols, v_minus_c_col, d, wells, rc_bins, kde
+    rc, max_cal_traj, metad_traj, cv_cols, v_minus_c_col, d, wells, rc_bins, kde, diffusivity,
 ):
     # normalize
     rc = rc / np.sqrt(np.sum(np.square(rc)))
     # calculate reweighted probability on RC grid
     prob, grid = md_prob(rc, metad_traj, cv_cols, v_minus_c_col, rc_bins, kde)
     # get binned rc values from max cal traj
-    binned_rc_traj = bin_max_cal(rc, max_cal_traj, cv_cols, grid)
+    if max_cal_traj is not None:
+        binned_rc_traj = bin_max_cal(rc, max_cal_traj, cv_cols, grid)
+    else:
+        binned_rc_traj = None
     # calculate spectral gap for given rc and trajectories
-    sg = sgoop(prob, binned_rc_traj, d, wells)
+    sg = sgoop(prob, binned_rc_traj, d, wells, diffusivity)
     # return negative gap for minimization
     return -sg
 

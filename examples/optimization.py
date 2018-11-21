@@ -29,6 +29,7 @@ sgoop_params = {
     'wells': 2,
     'd': 1,
     'kde': False,
+    'diffusivity': None,
 }
 
 
