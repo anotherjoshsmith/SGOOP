@@ -2,7 +2,7 @@ import os.path as op
 import pandas as pd
 
 
-def read_plumed_file(filename):
+def read_plumed_file(filename, cv_columns=None, bias_column=None):
     """
     Read PLUMED output files into pandas DataFrame.
 
@@ -13,7 +13,7 @@ def read_plumed_file(filename):
     ----------
     filename : string
         Name of the plumed file that contains collective variable data
-        (e.g. HILLS or COLVAR)
+        (e.g. HILLS or COLVAR).
 
     Returns
     -------
@@ -33,11 +33,20 @@ def read_plumed_file(filename):
         return None
 
     filename = op.abspath(filename)
-
     with open(filename, "r") as f:
         header = f.readline().strip().split(" ")[2:]
 
     data = pd.read_csv(
         filename, comment="#", names=header, delimiter="\s+", index_col=0
     )
-    return data
+
+    if cv_columns is None and bias_column is None:
+        return data
+
+    if bias_column is None:
+        return data[cv_columns]
+
+    if cv_columns is None:
+        return data[bias_column]
+
+    return data[cv_columns], data[bias_column]
