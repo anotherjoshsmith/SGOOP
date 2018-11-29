@@ -2,7 +2,32 @@ import numpy as np
 from statsmodels.nonparametric.kde import KDEUnivariate
 
 
-def gaussian_density_estimation(samples, weights, grid, h=0.1):
+def reweight_ct(rbias, kt=2.5):
+    """
+    Calculate frame weights, per Tiwary and Parinello, JCPB 2015 (c(t) method)
+
+    Reweighting biased MD trajectory to unbiased probabilty along
+    a given reaction coordinate. Using rbias column from COLVAR to
+    perform reweighting per Tiwary and Parinello
+
+    Parameters
+    ----------
+    rbias : np.ndarray
+        Array of Vbias - c(t) values associated with each timestep in a metadynamis
+        biased simulation. Calculated automatically in PLUMED when the
+        REWEIGHTING_NGRID and associated arguments are added to MetaD.
+    kt : float, 2.5
+        kT in kJ/mol.
+
+    Returns
+    -------
+    np.ndarray
+        Weight for each frame associated with rbias array supplied to the funciton.
+    """
+    return np.exp(rbias / kt)
+
+
+def gaussian_density_estimation(samples, weights, grid, bw=0.1):
     """
     Kernel density estimation with Gaussian kernel.
 
@@ -18,6 +43,7 @@ def gaussian_density_estimation(samples, weights, grid, h=0.1):
     h : float
         Bandwidth parameter for kernel density estimation. Associated with
         sigma in the case of a Gaussian kernel.
+
     Returns
     ----------
     np.ndarray
@@ -25,7 +51,7 @@ def gaussian_density_estimation(samples, weights, grid, h=0.1):
     """
     # KDE for fine-grained optimization
     kde = KDEUnivariate(samples)
-    kde.fit(weights=weights, bw=h, fft=False)
+    kde.fit(weights=weights, bw=bw, fft=False)
 
     # evaluate pdf on a grid to for use in SGOOP
     # TODO: area under curve between points instead of pdf at point
@@ -92,6 +118,14 @@ def probability_matrix(p, d):
         # negate diagonal terms, which should be positive
         # after the next operation
         matrix[i, i] = -matrix.sum(1)[i]
+
+    # # delete first d rows and columns to avoid edge effects
+    # matrix = np.delete(matrix, [idx for idx in range(d)], 0)
+    # matrix = np.delete(matrix, [idx for idx in range(d)], 1)
+    # # delete last d rows and columns to avoid edge effects
+    # matrix = np.delete(matrix, [(matrix.shape[0] - idx - 1) for idx in range(d)], 0)
+    # matrix = np.delete(matrix, [(matrix.shape[1] - idx - 1) for idx in range(d)], 1)
+
     trans_mat = np.ma.fix_invalid(matrix, copy=False, fill_value=0)
     return -np.transpose(trans_mat)
 
@@ -105,6 +139,7 @@ def sorted_eigenvalues(matrix):
 
 def spectral_gap(eigen_values, wells):
     eigen_exp = np.exp(-eigen_values)
+
     gaps = eigen_exp[:-1] - eigen_exp[1:]
 
     if np.shape(gaps)[0] >= wells:

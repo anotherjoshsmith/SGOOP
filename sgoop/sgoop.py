@@ -19,23 +19,22 @@ import sgoop.analysis as analysis
 # ########### Get probabilities along RC with KDE #####################
 # #####################################################################
 
-def md_prob(rc, md_traj, cv_columns, v_minus_c_col=None, rc_bins=20, kde=False, kt=2.5):
+def md_prob(rc, md_traj, cv_columns, weights=None, rc_bins=20, kde=False, bw=0.1):
     """
     Calculate probability density along a given reaction coordinate.
 
-    Reweighting biased MD trajectory to unbiased probabilty along
-    a given reaction coordinate. Using rbias column from COLVAR to
-    perform reweighting per Tiwary and Parinello
+    Calculate the value of the probability density function (for KDE) or probability
+    mass function (for histogram) at discrete grid points along a given RC. For a
+    biased simulation, frame weights should be supplied.
 
     Parameters
     ----------
     rc : int
     md_traj : pd.DataFrame
     cv_columns : List
-    v_minus_c_col : str, None
+    weights : str, None
     rc_bins : int, 20
     kde : bool, False
-    kt : float, 2.5
 
     Returns
     -------
@@ -52,22 +51,14 @@ def md_prob(rc, md_traj, cv_columns, v_minus_c_col=None, rc_bins=20, kde=False, 
     # calculate rc observable for each frame
     colvar_rc = np.sum(colvar * rc, axis=1)
 
-    # calculate frame weights, per Tiwary and Parinello, JCPB 2015 (c(t) method)
-    if v_minus_c_col:
-        v_minus_c = md_traj[v_minus_c_col].values
-        weights = np.exp(v_minus_c / kt)
-        norm_weights = weights / weights.sum()
-    else:
-        norm_weights = None
-
     if kde:
         # evaluate pdf on a grid using KDE with Gaussian kernel
         grid = np.linspace(colvar_rc.min(), colvar_rc.max(), num=rc_bins)
-        pdf = analysis.gaussian_density_estimation(colvar_rc, norm_weights, grid)
+        pdf = analysis.gaussian_density_estimation(colvar_rc, weights, grid, bw)
         return pdf, grid
     # evaluate pdf using histograms
     pdf, bin_edges = analysis.histogram_density_estimation(
-        colvar_rc, norm_weights, rc_bins
+        colvar_rc, weights, rc_bins
     )
     # set grid points to center of bins
     bin_width = bin_edges[1] - bin_edges[0]
@@ -152,8 +143,12 @@ def rc_eval(rc, max_cal_traj, metad_traj, sgoop_dict, return_eigenvalues=False):
     v_minus_c_col = sgoop_dict["v_minus_c_col"]
     diffusivity = sgoop_dict["diffusivity"]
 
+    weights = None
+    if v_minus_c_col:
+        rbias = metad_traj[v_minus_c_col].values
+        weights = analysis.reweight_ct(rbias)
     # calculate prob for rc bins and binned rc value for MaxCal traj
-    prob, grid = md_prob(rc, metad_traj, cv_cols, v_minus_c_col, rc_bins, kde)
+    prob, grid = md_prob(rc, metad_traj, cv_cols, weights, rc_bins, kde)
     if max_cal_traj is not None:
         binned = bin_max_cal(rc, max_cal_traj, cv_cols, grid)
     else:
@@ -190,6 +185,11 @@ def optimize_rc(
     :param annealing_temp:
     :return:
     """
+    weights = None
+    if sgoop_dict["v_minus_c_col"]:
+        rbias = metad_traj[sgoop_dict["v_minus_c_col"]].values
+        weights = analysis.reweight_ct(rbias)
+
     # pass trajectories and sgoop options through minimizer kwargs
     minimizer_kwargs = {
         "method": "BFGS",
@@ -200,7 +200,7 @@ def optimize_rc(
             max_cal_traj,
             metad_traj,
             sgoop_dict["cv_cols"],
-            sgoop_dict["v_minus_c_col"],
+            weights,
             sgoop_dict["d"],
             sgoop_dict["wells"],
             sgoop_dict["rc_bins"],
@@ -222,12 +222,12 @@ def optimize_rc(
 
 
 def __opt_func(
-    rc, max_cal_traj, metad_traj, cv_cols, v_minus_c_col, d, wells, rc_bins, kde, diffusivity,
+    rc, max_cal_traj, metad_traj, cv_cols, weights, d, wells, rc_bins, kde, diffusivity,
 ):
     # normalize
     rc = rc / np.sqrt(np.sum(np.square(rc)))
     # calculate reweighted probability on RC grid
-    prob, grid = md_prob(rc, metad_traj, cv_cols, v_minus_c_col, rc_bins, kde)
+    prob, grid = md_prob(rc, metad_traj, cv_cols, weights, rc_bins, kde)
     # get binned rc values from max cal traj
     if max_cal_traj is not None:
         binned_rc_traj = bin_max_cal(rc, max_cal_traj, cv_cols, grid)
