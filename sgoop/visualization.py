@@ -4,12 +4,24 @@ import matplotlib.pyplot as plt
 from sgoop.sgoop import md_prob, rc_eval
 
 
-def plot_spectral_gap(opt_rc, prob_traj, sgoop_dict, max_cal_traj=None, trial_rc=None):
+def plot_spectral_gap(
+        opt_rc,
+        prob_traj,
+        sgoop_dict,
+        weights=None,
+        max_cal_traj=None,
+        trial_rc=None,
+):
     if max_cal_traj is None:
         max_cal_traj = prob_traj
 
     sg, eigenvalues = rc_eval(
-        opt_rc, max_cal_traj, prob_traj, sgoop_dict, return_eigenvalues=True
+        opt_rc,
+        prob_traj,
+        sgoop_dict,
+        weights,
+        max_cal_traj,
+        return_eigenvalues=True,
     )
 
     fig = plt.figure()
@@ -23,7 +35,12 @@ def plot_spectral_gap(opt_rc, prob_traj, sgoop_dict, max_cal_traj=None, trial_rc
 
     if trial_rc is not None:
         sg, eigenvalues = rc_eval(
-            trial_rc, max_cal_traj, prob_traj, sgoop_dict, return_eigenvalues=True
+            trial_rc,
+            prob_traj,
+            sgoop_dict,
+            weights,
+            max_cal_traj,
+            return_eigenvalues=True,
         )
 
         # plot
@@ -38,15 +55,21 @@ def plot_spectral_gap(opt_rc, prob_traj, sgoop_dict, max_cal_traj=None, trial_rc
     return ax
 
 
-def plot_pmf(opt_rc, prob_traj, sgoop_dict, trial_rc=None, normalize_grid=False):
-    prob_args = (
-        sgoop_dict["cv_cols"],
-        sgoop_dict["v_minus_c_col"],
-        sgoop_dict["rc_bins"],
-        sgoop_dict["kde"],
+def plot_pmf(
+        opt_rc,
+        prob_traj,
+        sgoop_dict,
+        weights=None,
+        trial_rc=None,
+        normalize_grid=False,
+):
+    prob, grid = md_prob(
+        opt_rc,
+        prob_traj,
+        weights,
+        rc_bins=sgoop_dict.get('rc_bins'),
+        kde_bw=sgoop_dict.get('kde_bw'),
     )
-
-    prob, grid = md_prob(opt_rc, prob_traj, *prob_args)
 
     if normalize_grid:
         grid = (grid - grid.min()) / (grid.max() - grid.min())
@@ -59,7 +82,13 @@ def plot_pmf(opt_rc, prob_traj, sgoop_dict, trial_rc=None, normalize_grid=False)
     plt.plot(grid, -np.ma.log(prob), label="optimized RC")
 
     if trial_rc is not None:
-        prob, grid = md_prob(trial_rc, prob_traj, *prob_args)
+        prob, grid = md_prob(
+            trial_rc,
+            prob_traj,
+            weights,
+            rc_bins=sgoop_dict.get('rc_bins'),
+            kde_bw=sgoop_dict.get('kde_bw'),
+        )
 
         if normalize_grid:
             grid = (grid - grid.min()) / (grid.max() - grid.min())
