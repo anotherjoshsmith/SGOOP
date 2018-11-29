@@ -78,3 +78,9 @@ def reweight_ct(rbias, kt=2.5):
     # ensure rbias is an ndarray
     rbias = np.array(rbias)
     return np.exp(rbias / kt)
+
+
+def angle_to_rc(angle):
+    x = np.cos(angle)
+    y = np.sin(angle)
+    return np.array([x, y])

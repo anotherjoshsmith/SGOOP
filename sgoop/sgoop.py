@@ -51,6 +51,9 @@ def md_prob(rc, md_traj, weights=None, rc_bins=20, kde_bw=None):
     # calculate rc observable for each frame
     colvar_rc = np.sum(md_traj * rc, axis=1)
 
+    if weights is not None:
+        weights = np.array(weights)
+
     if kde_bw is not None:
         # evaluate pdf on a grid using KDE with Gaussian kernel
         grid = np.linspace(colvar_rc.min(), colvar_rc.max(), num=rc_bins)
