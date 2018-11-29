@@ -1,4 +1,5 @@
 import os.path as op
+import numpy as np
 import pandas as pd
 
 
@@ -50,3 +51,30 @@ def read_plumed_file(filename, cv_columns=None, bias_column=None):
         return data[bias_column]
 
     return data[cv_columns], data[bias_column]
+
+
+def reweight_ct(rbias, kt=2.5):
+    """
+    Calculate frame weights, per Tiwary and Parinello, JCPB 2015 (c(t) method)
+
+    Reweighting biased MD trajectory to unbiased probabilty along
+    a given reaction coordinate. Using rbias column from COLVAR to
+    perform reweighting per Tiwary and Parinello
+
+    Parameters
+    ----------
+    rbias : np.ndarray
+        Array of Vbias - c(t) values associated with each timestep in a metadynamis
+        biased simulation. Calculated automatically in PLUMED when the
+        REWEIGHTING_NGRID and associated arguments are added to MetaD.
+    kt : float, 2.5
+        kT in kJ/mol.
+
+    Returns
+    -------
+    np.ndarray
+        Weight for each frame associated with rbias array supplied to the funciton.
+    """
+    # ensure rbias is an ndarray
+    rbias = np.array(rbias)
+    return np.exp(rbias / kt)

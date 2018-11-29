@@ -2,31 +2,6 @@ import numpy as np
 from statsmodels.nonparametric.kde import KDEUnivariate
 
 
-def reweight_ct(rbias, kt=2.5):
-    """
-    Calculate frame weights, per Tiwary and Parinello, JCPB 2015 (c(t) method)
-
-    Reweighting biased MD trajectory to unbiased probabilty along
-    a given reaction coordinate. Using rbias column from COLVAR to
-    perform reweighting per Tiwary and Parinello
-
-    Parameters
-    ----------
-    rbias : np.ndarray
-        Array of Vbias - c(t) values associated with each timestep in a metadynamis
-        biased simulation. Calculated automatically in PLUMED when the
-        REWEIGHTING_NGRID and associated arguments are added to MetaD.
-    kt : float, 2.5
-        kT in kJ/mol.
-
-    Returns
-    -------
-    np.ndarray
-        Weight for each frame associated with rbias array supplied to the funciton.
-    """
-    return np.exp(rbias / kt)
-
-
 def gaussian_density_estimation(samples, weights, grid, bw=0.1):
     """
     Kernel density estimation with Gaussian kernel.
