@@ -19,7 +19,7 @@ import sgoop.analysis as analysis
 # ########### Get probabilities along RC with KDE #####################
 # #####################################################################
 
-def md_prob(rc, md_traj, cv_columns, weights=None, rc_bins=20, kde=False, bw=0.1):
+def md_prob(rc, md_traj, weights=None, rc_bins=20, kde_bw=None):
     """
     Calculate probability density along a given reaction coordinate.
 
@@ -29,12 +29,11 @@ def md_prob(rc, md_traj, cv_columns, weights=None, rc_bins=20, kde=False, bw=0.1
 
     Parameters
     ----------
-    rc : int
-    md_traj : pd.DataFrame
-    cv_columns : List
-    weights : str, None
+    rc : array-like
+    md_traj : array-like
+    weights : array-like, None
     rc_bins : int, 20
-    kde : bool, False
+    kde_bw : float, None
 
     Returns
     -------
@@ -46,16 +45,18 @@ def md_prob(rc, md_traj, cv_columns, weights=None, rc_bins=20, kde=False, bw=0.1
 
 
     """
-    # read in parameters from sgoop object
-    colvar = md_traj[cv_columns].values
+    # ensure rc and md_traj are numpy arrays before computation
+    rc = np.array(rc)
+    md_traj = np.array(md_traj)
     # calculate rc observable for each frame
-    colvar_rc = np.sum(colvar * rc, axis=1)
+    colvar_rc = np.sum(md_traj * rc, axis=1)
 
-    if kde:
+    if kde_bw is not None:
         # evaluate pdf on a grid using KDE with Gaussian kernel
         grid = np.linspace(colvar_rc.min(), colvar_rc.max(), num=rc_bins)
-        pdf = analysis.gaussian_density_estimation(colvar_rc, weights, grid, bw)
+        pdf = analysis.gaussian_density_estimation(colvar_rc, weights, grid, kde_bw)
         return pdf, grid
+
     # evaluate pdf using histograms
     pdf, bin_edges = analysis.histogram_density_estimation(
         colvar_rc, weights, rc_bins
@@ -71,7 +72,7 @@ def md_prob(rc, md_traj, cv_columns, weights=None, rc_bins=20, kde=False, bw=0.1
 # ###### Get binned RC value along unbiased traj for MaxCal ###########
 # #####################################################################
 
-def bin_max_cal(rc, md_traj, cv_columns, grid):
+def bin_max_cal(rc, md_traj, grid):
     """
     Calculate Reaction Coordinate bin index for each frame in max_cal_traj.
 
@@ -89,10 +90,14 @@ def bin_max_cal(rc, md_traj, cv_columns, grid):
     binned : np.ndarray
 
     """
-    # read in parameters from sgoop object
-    colvar = md_traj[cv_columns].values
+    if rc is None or md_traj is None:
+        return None
+
+    # ensure rc and md_traj are ndarrays before computation
+    rc = np.array(rc)
+    md_traj = np.array(md_traj)
     # calculate rc observable for each frame
-    colvar_rc = np.sum(colvar * rc, axis=1)
+    colvar_rc = np.sum(md_traj * rc, axis=1)
     binned = analysis.find_closest_points(colvar_rc, grid)
     return binned
 
@@ -110,9 +115,15 @@ def get_eigenvalues(binned_rc_traj, p, d, diffusivity=None):
 
     n = diffusivity
     if binned_rc_traj is not None:
+        # ensure binned traj is an ndarray before computation
+        binned_rc_traj = np.array(binned_rc_traj)
         n = analysis.avg_neighbor_transitions(binned_rc_traj, d)
+
     with np.errstate(divide="ignore", invalid="ignore"):
+        # ensure p is an ndarray before computation
+        p = np.array(p)
         prob_matrix = analysis.probability_matrix(p, d)
+
     transition_matrix = n * prob_matrix
     eigenvalues = analysis.sorted_eigenvalues(transition_matrix)
     return eigenvalues
@@ -124,7 +135,7 @@ def get_eigenvalues(binned_rc_traj, p, d, diffusivity=None):
 
 def sgoop(p, binned, d, wells, diffusivity=None):
     # calculate eigenvalues and spectral gap
-    eigen_values = get_eigenvalues(binned, p, d, diffusivity )
+    eigen_values = get_eigenvalues(binned, p, d, diffusivity)
     sg = analysis.spectral_gap(eigen_values, wells)
     return sg
 
@@ -133,28 +144,24 @@ def sgoop(p, binned, d, wells, diffusivity=None):
 # ###### Evaluate a series of RCs or optimize from starting RC #######
 # ####################################################################
 
-def rc_eval(rc, max_cal_traj, metad_traj, sgoop_dict, return_eigenvalues=False):
-    # Unbiased SGOOP on a given RC
-    rc_bins = sgoop_dict["rc_bins"]
-    wells = sgoop_dict["wells"]
-    d = sgoop_dict["d"]
-    kde = sgoop_dict["kde"]
-    cv_cols = sgoop_dict["cv_cols"]
-    v_minus_c_col = sgoop_dict["v_minus_c_col"]
-    diffusivity = sgoop_dict["diffusivity"]
-
-    weights = None
-    if v_minus_c_col:
-        rbias = metad_traj[v_minus_c_col].values
-        weights = analysis.reweight_ct(rbias)
+def rc_eval(
+        rc,
+        probability_traj,
+        sgoop_dict,
+        weights=None,
+        max_cal_traj=None,
+        return_eigenvalues=False,
+):
     # calculate prob for rc bins and binned rc value for MaxCal traj
-    prob, grid = md_prob(rc, metad_traj, cv_cols, weights, rc_bins, kde)
-    if max_cal_traj is not None:
-        binned = bin_max_cal(rc, max_cal_traj, cv_cols, grid)
-    else:
-        binned = None
-
+    rc_bins = sgoop_dict.get('rc_bins')
+    kde_bw = sgoop_dict.get('kde_bw')
+    prob, grid = md_prob(rc, probability_traj, weights, rc_bins, kde_bw)
+    # bin MaxCal trajectory. returns None if no trajectory is supplied.
+    binned = bin_max_cal(rc, max_cal_traj, grid)
     # calculate spectral gap
+    d = sgoop_dict.get('d')
+    wells = sgoop_dict.get('wells')
+    diffusivity = sgoop_dict.get('diffusivity')
     sg = sgoop(prob, binned, d, wells, diffusivity)
 
     if return_eigenvalues:
