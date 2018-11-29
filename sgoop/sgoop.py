@@ -129,17 +129,6 @@ def get_eigenvalues(binned_rc_traj, p, d, diffusivity=None):
     return eigenvalues
 
 
-# #####################################################################
-# ###### Calc eigenvalues and spectral gap from transition mat ########
-# #####################################################################
-
-def sgoop(p, binned, d, wells, diffusivity=None):
-    # calculate eigenvalues and spectral gap
-    eigen_values = get_eigenvalues(binned, p, d, diffusivity)
-    sg = analysis.spectral_gap(eigen_values, wells)
-    return sg
-
-
 # ####################################################################
 # ###### Evaluate a series of RCs or optimize from starting RC #######
 # ####################################################################
@@ -162,10 +151,10 @@ def rc_eval(
     d = sgoop_dict.get('d')
     wells = sgoop_dict.get('wells')
     diffusivity = sgoop_dict.get('diffusivity')
-    sg = sgoop(prob, binned, d, wells, diffusivity)
+    eigenvalues = get_eigenvalues(binned, prob, d, diffusivity)
+    sg = analysis.spectral_gap(eigenvalues, wells)
 
     if return_eigenvalues:
-        eigenvalues = get_eigenvalues(binned, prob, d)
         return sg, eigenvalues
 
     return sg
@@ -173,9 +162,10 @@ def rc_eval(
 
 def optimize_rc(
     rc_0,
-    max_cal_traj,
-    metad_traj,
+    probability_traj,
     sgoop_dict,
+    weights=None,
+    max_cal_traj=None,
     niter=50,
     annealing_temp=0.1,
     step_size=0.5,
@@ -192,11 +182,6 @@ def optimize_rc(
     :param annealing_temp:
     :return:
     """
-    weights = None
-    if sgoop_dict["v_minus_c_col"]:
-        rbias = metad_traj[sgoop_dict["v_minus_c_col"]].values
-        weights = analysis.reweight_ct(rbias)
-
     # pass trajectories and sgoop options through minimizer kwargs
     minimizer_kwargs = {
         "method": "BFGS",
@@ -204,17 +189,17 @@ def optimize_rc(
             # "maxiter": 10
         },
         "args": (
-            max_cal_traj,
-            metad_traj,
-            sgoop_dict["cv_cols"],
+            probability_traj,
+            sgoop_dict,
             weights,
-            sgoop_dict["d"],
-            sgoop_dict["wells"],
-            sgoop_dict["rc_bins"],
-            sgoop_dict["kde"],
-            sgoop_dict["diffusivity"]
+            max_cal_traj,
         ),
     }
+
+    if max_cal_traj is None and sgoop_dict.get('diffusivity') is None:
+        print('A dynamical observable is required by the MaxCal framework. Please '
+              'provide either a MaxCal trajectory or static diffusion constant.')
+        return
 
     return opt.basinhopping(
         __opt_func,
@@ -229,19 +214,12 @@ def optimize_rc(
 
 
 def __opt_func(
-    rc, max_cal_traj, metad_traj, cv_cols, weights, d, wells, rc_bins, kde, diffusivity,
+    rc, metad_traj, sgoop_dict, weights,  max_cal_traj,
 ):
-    # normalize
+    # normalize rc
     rc = rc / np.sqrt(np.sum(np.square(rc)))
-    # calculate reweighted probability on RC grid
-    prob, grid = md_prob(rc, metad_traj, cv_cols, weights, rc_bins, kde)
-    # get binned rc values from max cal traj
-    if max_cal_traj is not None:
-        binned_rc_traj = bin_max_cal(rc, max_cal_traj, cv_cols, grid)
-    else:
-        binned_rc_traj = None
-    # calculate spectral gap for given rc and trajectories
-    sg = sgoop(prob, binned_rc_traj, d, wells, diffusivity)
+    # calculate spectral gap for normalized rc
+    sg = rc_eval(rc, metad_traj, sgoop_dict, weights, max_cal_traj)
     # return negative gap for minimization
     return -sg
 
