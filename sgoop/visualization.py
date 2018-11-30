@@ -5,7 +5,13 @@ from sgoop.sgoop import md_prob, rc_eval
 
 
 def plot_spectral_gap(
-    opt_rc, prob_traj, sgoop_dict, weights=None, max_cal_traj=None, trial_rc=None
+    opt_rc,
+    prob_traj,
+    sgoop_dict,
+    weights=None,
+    max_cal_traj=None,
+    trial_rc=None,
+    save_file=None,
 ):
     if max_cal_traj is None:
         max_cal_traj = prob_traj
@@ -42,11 +48,20 @@ def plot_spectral_gap(
         )
 
     plt.legend(frameon=False)
+
+    if save_file is not None:
+        plt.savefig(save_file, dpi=300, bbox_inches="tight")
     return ax
 
 
 def plot_pmf(
-    opt_rc, prob_traj, sgoop_dict, weights=None, trial_rc=None, normalize_grid=False
+    opt_rc,
+    prob_traj,
+    sgoop_dict,
+    weights=None,
+    trial_rc=None,
+    normalize_grid=False,
+    save_file=None,
 ):
     prob, grid = md_prob(
         opt_rc,
@@ -82,4 +97,7 @@ def plot_pmf(
         plt.plot(grid, -np.ma.log(prob), label="trial RC", alpha=0.5)
 
     plt.legend(frameon=False)
+
+    if save_file is not None:
+        plt.savefig(save_file, dpi=300, bbox_inches="tight")
     return ax

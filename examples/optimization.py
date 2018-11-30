@@ -5,6 +5,7 @@ sys.path.append('../../')
 
 from sgoop.utilities import read_plumed_file, reweight_ct
 from sgoop.sgoop import optimize_rc
+from sgoop.visualization import plot_pmf
 
 
 # Specify the filenames for your biased and unbiased runs
@@ -59,9 +60,18 @@ ret = optimize_rc(
     sgoop_params,
     weights=weights,
     max_cal_traj=max_cal_traj,
-    niter=100,
+    niter=3,
     annealing_temp=0.01,
     step_size=1.0
 )
-
 print(f'Best RC coeffient array: {", ".join([str(coeff) for coeff in ret.x])}', "\n")
+
+plot_pmf(
+    ret.x,
+    metad_traj,
+    sgoop_params,
+    weights=weights,
+    trial_rc=x0,
+    normalize_grid=True,
+    save_file='opt_rc_pmf.png'
+)
