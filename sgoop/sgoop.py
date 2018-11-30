@@ -19,6 +19,7 @@ import sgoop.analysis as analysis
 # ########### Get probabilities along RC with KDE #####################
 # #####################################################################
 
+
 def md_prob(rc, md_traj, weights=None, rc_bins=20, kde_bw=None):
     """
     Calculate probability density along a given reaction coordinate.
@@ -61,9 +62,7 @@ def md_prob(rc, md_traj, weights=None, rc_bins=20, kde_bw=None):
         return pdf, grid
 
     # evaluate pdf using histograms
-    pdf, bin_edges = analysis.histogram_density_estimation(
-        colvar_rc, weights, rc_bins
-    )
+    pdf, bin_edges = analysis.histogram_density_estimation(colvar_rc, weights, rc_bins)
     # set grid points to center of bins
     bin_width = bin_edges[1] - bin_edges[0]
     grid = bin_edges[:-1] + bin_width
@@ -74,6 +73,7 @@ def md_prob(rc, md_traj, weights=None, rc_bins=20, kde_bw=None):
 # #####################################################################
 # ###### Get binned RC value along unbiased traj for MaxCal ###########
 # #####################################################################
+
 
 def bin_max_cal(rc, md_traj, grid):
     """
@@ -113,7 +113,7 @@ def bin_max_cal(rc, md_traj, grid):
 
 def get_eigenvalues(binned_rc_traj, p, d, diffusivity=None):
     if diffusivity is None and binned_rc_traj is None:
-        print('You must supply a MaxCal traj or diffusivity.')
+        print("You must supply a MaxCal traj or diffusivity.")
         return
 
     n = diffusivity
@@ -136,24 +136,25 @@ def get_eigenvalues(binned_rc_traj, p, d, diffusivity=None):
 # ###### Evaluate a series of RCs or optimize from starting RC #######
 # ####################################################################
 
+
 def rc_eval(
-        rc,
-        probability_traj,
-        sgoop_dict,
-        weights=None,
-        max_cal_traj=None,
-        return_eigenvalues=False,
+    rc,
+    probability_traj,
+    sgoop_dict,
+    weights=None,
+    max_cal_traj=None,
+    return_eigenvalues=False,
 ):
     # calculate prob for rc bins and binned rc value for MaxCal traj
-    rc_bins = sgoop_dict.get('rc_bins')
-    kde_bw = sgoop_dict.get('kde_bw')
+    rc_bins = sgoop_dict.get("rc_bins")
+    kde_bw = sgoop_dict.get("kde_bw")
     prob, grid = md_prob(rc, probability_traj, weights, rc_bins, kde_bw)
     # bin MaxCal trajectory. returns None if no trajectory is supplied.
     binned = bin_max_cal(rc, max_cal_traj, grid)
     # calculate spectral gap
-    d = sgoop_dict.get('d')
-    wells = sgoop_dict.get('wells')
-    diffusivity = sgoop_dict.get('diffusivity')
+    d = sgoop_dict.get("d")
+    wells = sgoop_dict.get("wells")
+    diffusivity = sgoop_dict.get("diffusivity")
     eigenvalues = get_eigenvalues(binned, prob, d, diffusivity)
     sg = analysis.spectral_gap(eigenvalues, wells)
 
@@ -191,17 +192,14 @@ def optimize_rc(
         "options": {
             # "maxiter": 10
         },
-        "args": (
-            probability_traj,
-            sgoop_dict,
-            weights,
-            max_cal_traj,
-        ),
+        "args": (probability_traj, sgoop_dict, weights, max_cal_traj),
     }
 
-    if max_cal_traj is None and sgoop_dict.get('diffusivity') is None:
-        print('A dynamical observable is required by the MaxCal framework. Please '
-              'provide either a MaxCal trajectory or static diffusion constant.')
+    if max_cal_traj is None and sgoop_dict.get("diffusivity") is None:
+        print(
+            "A dynamical observable is required by the MaxCal framework. Please "
+            "provide either a MaxCal trajectory or static diffusion constant."
+        )
         return
 
     return opt.basinhopping(
@@ -216,9 +214,7 @@ def optimize_rc(
     )
 
 
-def __opt_func(
-    rc, metad_traj, sgoop_dict, weights,  max_cal_traj,
-):
+def __opt_func(rc, metad_traj, sgoop_dict, weights, max_cal_traj):
     # normalize rc
     rc = rc / np.sqrt(np.sum(np.square(rc)))
     # calculate spectral gap for normalized rc

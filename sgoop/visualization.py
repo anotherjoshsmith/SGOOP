@@ -5,23 +5,13 @@ from sgoop.sgoop import md_prob, rc_eval
 
 
 def plot_spectral_gap(
-        opt_rc,
-        prob_traj,
-        sgoop_dict,
-        weights=None,
-        max_cal_traj=None,
-        trial_rc=None,
+    opt_rc, prob_traj, sgoop_dict, weights=None, max_cal_traj=None, trial_rc=None
 ):
     if max_cal_traj is None:
         max_cal_traj = prob_traj
 
     sg, eigenvalues = rc_eval(
-        opt_rc,
-        prob_traj,
-        sgoop_dict,
-        weights,
-        max_cal_traj,
-        return_eigenvalues=True,
+        opt_rc, prob_traj, sgoop_dict, weights, max_cal_traj, return_eigenvalues=True
     )
 
     fig = plt.figure()
@@ -56,19 +46,14 @@ def plot_spectral_gap(
 
 
 def plot_pmf(
-        opt_rc,
-        prob_traj,
-        sgoop_dict,
-        weights=None,
-        trial_rc=None,
-        normalize_grid=False,
+    opt_rc, prob_traj, sgoop_dict, weights=None, trial_rc=None, normalize_grid=False
 ):
     prob, grid = md_prob(
         opt_rc,
         prob_traj,
         weights,
-        rc_bins=sgoop_dict.get('rc_bins'),
-        kde_bw=sgoop_dict.get('kde_bw'),
+        rc_bins=sgoop_dict.get("rc_bins"),
+        kde_bw=sgoop_dict.get("kde_bw"),
     )
 
     if normalize_grid:
@@ -86,8 +71,8 @@ def plot_pmf(
             trial_rc,
             prob_traj,
             weights,
-            rc_bins=sgoop_dict.get('rc_bins'),
-            kde_bw=sgoop_dict.get('kde_bw'),
+            rc_bins=sgoop_dict.get("rc_bins"),
+            kde_bw=sgoop_dict.get("kde_bw"),
         )
 
         if normalize_grid:

@@ -13,17 +13,17 @@ def test_gaussian_denisty_estimation():
     weights = None
 
     # bandwidth too small for Gaussians to overlap
-    actual = gaussian_density_estimation(samples, weights, samples[:5], h=0.001)
+    actual = gaussian_density_estimation(samples, weights, samples[:5], bw=0.001)
     assert np.all(actual[actual == actual[0]])
 
     # bandwidth large enough for Gaussians to overlap
-    actual = gaussian_density_estimation(samples, weights, samples[:5], h=0.5)
+    actual = gaussian_density_estimation(samples, weights, samples[:5], bw=0.5)
     expected = np.array([[0.18122683, 0.20282322, 0.20287675, 0.20282322, 0.18122683]])
     assert np.allclose(actual, expected)
 
     # weighted samples with overlapping Gaussians
     weights = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.1, 0.2, 0.3, 0.4, 0.5])
-    actual = gaussian_density_estimation(samples, weights, samples[:5], h=0.5)
+    actual = gaussian_density_estimation(samples, weights, samples[:5], bw=0.5)
     expected = np.array([0.06764343, 0.13525117, 0.20287675, 0.27039527, 0.29481024])
     assert np.allclose(actual, expected)
 
@@ -88,20 +88,18 @@ def test_probability_matrix():
 
 def test_sorted_eigenvalues():
     matrix = np.array(
-        [[0.908930, -0.454585, 0.0, 0.0, 0.0],
-         [-0.908930, 1.24184, -0.524840, 0.0, 0.0],
-         [0.0, -0.787260, 1.26692, -0.556787, 0.0],
-         [0.0, 0.0, -0.742089, 1.22797, -0.615603],
-         [0.0, 0.0, 0.0, -0.671188, 0.615603]]
+        [
+            [0.908930, -0.454585, 0.0, 0.0, 0.0],
+            [-0.908930, 1.24184, -0.524840, 0.0, 0.0],
+            [0.0, -0.787260, 1.26692, -0.556787, 0.0],
+            [0.0, 0.0, -0.742089, 1.22797, -0.615603],
+            [0.0, 0.0, 0.0, -0.671188, 0.615603],
+        ]
     )
     # test that eigenvalues are calculated as expected
     actual = sorted_eigenvalues(matrix)
     expected = np.array(
-        [-3.96933961e-06,
-         3.17075011e-01,
-         9.51439139e-01,
-         1.68900194e+00,
-         2.30375088e+00]
+        [-3.96933961e-06, 3.17075011e-01, 9.51439139e-01, 1.68900194e00, 2.30375088e00]
     )
     assert np.allclose(actual, expected)
     assert np.isclose(np.exp(-actual[0]), 1.0)
@@ -109,11 +107,7 @@ def test_sorted_eigenvalues():
 
 def test_spectral_gap():
     eigenvalues = np.array(
-        [-3.96933961e-06,
-         3.17075011e-01,
-         9.51439139e-01,
-         1.68900194e+00,
-         2.30375088e+00]
+        [-3.96933961e-06, 3.17075011e-01, 9.51439139e-01, 1.68900194e00, 2.30375088e00]
     )
 
     actual = spectral_gap(eigenvalues, 2)

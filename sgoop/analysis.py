@@ -15,7 +15,7 @@ def gaussian_density_estimation(samples, weights, grid, bw=0.1):
         Array of sample weights. If None, unweighted KDE will be performed.
     grid : np.ndarray
         Grid points at which the KDE function should be evaluated.
-    h : float
+    bw : float
         Bandwidth parameter for kernel density estimation. Associated with
         sigma in the case of a Gaussian kernel.
 
