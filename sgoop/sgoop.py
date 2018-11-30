@@ -19,23 +19,22 @@ import sgoop.analysis as analysis
 # ########### Get probabilities along RC with KDE #####################
 # #####################################################################
 
-def md_prob(rc, md_traj, cv_columns, v_minus_c_col=None, rc_bins=20, kde=False, kt=2.5):
+
+def md_prob(rc, md_traj, weights=None, rc_bins=20, kde_bw=None):
     """
     Calculate probability density along a given reaction coordinate.
 
-    Reweighting biased MD trajectory to unbiased probabilty along
-    a given reaction coordinate. Using rbias column from COLVAR to
-    perform reweighting per Tiwary and Parinello
+    Calculate the value of the probability density function (for KDE) or probability
+    mass function (for histogram) at discrete grid points along a given RC. For a
+    biased simulation, frame weights should be supplied.
 
     Parameters
     ----------
-    rc : int
-    md_traj : pd.DataFrame
-    cv_columns : List
-    v_minus_c_col : str, None
+    rc : array-like
+    md_traj : array-like
+    weights : array-like, None
     rc_bins : int, 20
-    kde : bool, False
-    kt : float, 2.5
+    kde_bw : float, None
 
     Returns
     -------
@@ -47,28 +46,23 @@ def md_prob(rc, md_traj, cv_columns, v_minus_c_col=None, rc_bins=20, kde=False, 
 
 
     """
-    # read in parameters from sgoop object
-    colvar = md_traj[cv_columns].values
+    # ensure rc and md_traj are numpy arrays before computation
+    rc = np.array(rc)
+    md_traj = np.array(md_traj)
     # calculate rc observable for each frame
-    colvar_rc = np.sum(colvar * rc, axis=1)
+    colvar_rc = np.sum(md_traj * rc, axis=1)
 
-    # calculate frame weights, per Tiwary and Parinello, JCPB 2015 (c(t) method)
-    if v_minus_c_col:
-        v_minus_c = md_traj[v_minus_c_col].values
-        weights = np.exp(v_minus_c / kt)
-        norm_weights = weights / weights.sum()
-    else:
-        norm_weights = None
+    if weights is not None:
+        weights = np.array(weights)
 
-    if kde:
+    if kde_bw is not None:
         # evaluate pdf on a grid using KDE with Gaussian kernel
         grid = np.linspace(colvar_rc.min(), colvar_rc.max(), num=rc_bins)
-        pdf = analysis.gaussian_density_estimation(colvar_rc, norm_weights, grid)
+        pdf = analysis.gaussian_density_estimation(colvar_rc, weights, grid, kde_bw)
         return pdf, grid
+
     # evaluate pdf using histograms
-    pdf, bin_edges = analysis.histogram_density_estimation(
-        colvar_rc, norm_weights, rc_bins
-    )
+    pdf, bin_edges = analysis.histogram_density_estimation(colvar_rc, weights, rc_bins)
     # set grid points to center of bins
     bin_width = bin_edges[1] - bin_edges[0]
     grid = bin_edges[:-1] + bin_width
@@ -80,7 +74,8 @@ def md_prob(rc, md_traj, cv_columns, v_minus_c_col=None, rc_bins=20, kde=False, 
 # ###### Get binned RC value along unbiased traj for MaxCal ###########
 # #####################################################################
 
-def bin_max_cal(rc, md_traj, cv_columns, grid):
+
+def bin_max_cal(rc, md_traj, grid):
     """
     Calculate Reaction Coordinate bin index for each frame in max_cal_traj.
 
@@ -98,10 +93,14 @@ def bin_max_cal(rc, md_traj, cv_columns, grid):
     binned : np.ndarray
 
     """
-    # read in parameters from sgoop object
-    colvar = md_traj[cv_columns].values
+    if rc is None or md_traj is None:
+        return None
+
+    # ensure rc and md_traj are ndarrays before computation
+    rc = np.array(rc)
+    md_traj = np.array(md_traj)
     # calculate rc observable for each frame
-    colvar_rc = np.sum(colvar * rc, axis=1)
+    colvar_rc = np.sum(md_traj * rc, axis=1)
     binned = analysis.find_closest_points(colvar_rc, grid)
     return binned
 
@@ -113,49 +112,53 @@ def bin_max_cal(rc, md_traj, cv_columns, grid):
 
 
 def get_eigenvalues(binned_rc_traj, p, d, diffusivity=None):
+    if diffusivity is None and binned_rc_traj is None:
+        print("You must supply a MaxCal traj or diffusivity.")
+        return
+
     n = diffusivity
-    if not n:
+    if binned_rc_traj is not None:
+        # ensure binned traj is an ndarray before computation
+        binned_rc_traj = np.array(binned_rc_traj)
         n = analysis.avg_neighbor_transitions(binned_rc_traj, d)
+
     with np.errstate(divide="ignore", invalid="ignore"):
+        # ensure p is an ndarray before computation
+        p = np.array(p)
         prob_matrix = analysis.probability_matrix(p, d)
+
     transition_matrix = n * prob_matrix
     eigenvalues = analysis.sorted_eigenvalues(transition_matrix)
     return eigenvalues
-
-
-# #####################################################################
-# ###### Calc eigenvalues and spectral gap from transition mat ########
-# #####################################################################
-
-def sgoop(p, binned, d, wells):
-    # calculate eigenvalues and spectral gap
-    eigen_values = get_eigenvalues(binned, p, d)
-    sg = analysis.spectral_gap(eigen_values, wells)
-    return sg
 
 
 # ####################################################################
 # ###### Evaluate a series of RCs or optimize from starting RC #######
 # ####################################################################
 
-def rc_eval(rc, max_cal_traj, metad_traj, sgoop_dict, return_eigenvalues=False):
-    # Unbiased SGOOP on a given RC
-    rc_bins = sgoop_dict["rc_bins"]
-    wells = sgoop_dict["wells"]
-    d = sgoop_dict["d"]
-    kde = sgoop_dict["kde"]
-    cv_cols = sgoop_dict["cv_cols"]
-    v_minus_c_col = sgoop_dict["v_minus_c_col"]
 
+def rc_eval(
+    rc,
+    probability_traj,
+    sgoop_dict,
+    weights=None,
+    max_cal_traj=None,
+    return_eigenvalues=False,
+):
     # calculate prob for rc bins and binned rc value for MaxCal traj
-    prob, grid = md_prob(rc, metad_traj, cv_cols, v_minus_c_col, rc_bins, kde)
-    binned = bin_max_cal(rc, max_cal_traj, cv_cols, grid)
-
+    rc_bins = sgoop_dict.get("rc_bins")
+    kde_bw = sgoop_dict.get("kde_bw")
+    prob, grid = md_prob(rc, probability_traj, weights, rc_bins, kde_bw)
+    # bin MaxCal trajectory. returns None if no trajectory is supplied.
+    binned = bin_max_cal(rc, max_cal_traj, grid)
     # calculate spectral gap
-    sg = sgoop(prob, binned, d, wells)
+    d = sgoop_dict.get("d")
+    wells = sgoop_dict.get("wells")
+    diffusivity = sgoop_dict.get("diffusivity")
+    eigenvalues = get_eigenvalues(binned, prob, d, diffusivity)
+    sg = analysis.spectral_gap(eigenvalues, wells)
 
     if return_eigenvalues:
-        eigenvalues = get_eigenvalues(binned, prob, d)
         return sg, eigenvalues
 
     return sg
@@ -163,9 +166,10 @@ def rc_eval(rc, max_cal_traj, metad_traj, sgoop_dict, return_eigenvalues=False):
 
 def optimize_rc(
     rc_0,
-    max_cal_traj,
-    metad_traj,
+    probability_traj,
     sgoop_dict,
+    weights=None,
+    max_cal_traj=None,
     niter=50,
     annealing_temp=0.1,
     step_size=0.5,
@@ -188,17 +192,15 @@ def optimize_rc(
         "options": {
             # "maxiter": 10
         },
-        "args": (
-            max_cal_traj,
-            metad_traj,
-            sgoop_dict["cv_cols"],
-            sgoop_dict["v_minus_c_col"],
-            sgoop_dict["d"],
-            sgoop_dict["wells"],
-            sgoop_dict["rc_bins"],
-            sgoop_dict["kde"],
-        ),
+        "args": (probability_traj, sgoop_dict, weights, max_cal_traj),
     }
+
+    if max_cal_traj is None and sgoop_dict.get("diffusivity") is None:
+        print(
+            "A dynamical observable is required by the MaxCal framework. Please "
+            "provide either a MaxCal trajectory or static diffusion constant."
+        )
+        return
 
     return opt.basinhopping(
         __opt_func,
@@ -212,17 +214,11 @@ def optimize_rc(
     )
 
 
-def __opt_func(
-    rc, max_cal_traj, metad_traj, cv_cols, v_minus_c_col, d, wells, rc_bins, kde
-):
-    # normalize
+def __opt_func(rc, metad_traj, sgoop_dict, weights, max_cal_traj):
+    # normalize rc
     rc = rc / np.sqrt(np.sum(np.square(rc)))
-    # calculate reweighted probability on RC grid
-    prob, grid = md_prob(rc, metad_traj, cv_cols, v_minus_c_col, rc_bins, kde)
-    # get binned rc values from max cal traj
-    binned_rc_traj = bin_max_cal(rc, max_cal_traj, cv_cols, grid)
-    # calculate spectral gap for given rc and trajectories
-    sg = sgoop(prob, binned_rc_traj, d, wells)
+    # calculate spectral gap for normalized rc
+    sg = rc_eval(rc, metad_traj, sgoop_dict, weights, max_cal_traj)
     # return negative gap for minimization
     return -sg
 
