@@ -60,7 +60,7 @@ ret = optimize_rc(
     sgoop_params,
     weights=weights,
     max_cal_traj=max_cal_traj,
-    niter=3,
+    niter=100,
     annealing_temp=0.01,
     step_size=1.0
 )
