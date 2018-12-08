@@ -88,9 +88,9 @@ def calculate_sigma(md_traj, rc=None):
         rc = np.array(rc)
         # calculate rc observable for each frame
         colvar_rc = np.sum(md_traj * rc, axis=1)
-        return 2 * colvar_rc.std()
+        return colvar_rc.std() / 2
 
-    return 2 * md_traj.std(axis=0)
+    return md_traj.std(axis=0) / 2
 
 
 def angle_to_rc(angle):
