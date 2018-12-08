@@ -80,6 +80,19 @@ def reweight_ct(rbias, kt=2.5):
     return np.exp(rbias / kt)
 
 
+def calculate_sigma(md_traj, rc=None):
+    # ensure max_cal_traj is an ndarray
+    md_traj = np.array(md_traj)
+    if rc is not None:
+        # ensure rc and md_traj are numpy arrays before computation
+        rc = np.array(rc)
+        # calculate rc observable for each frame
+        colvar_rc = np.sum(md_traj * rc, axis=1)
+        return 2 * colvar_rc.std()
+
+    return 2 * md_traj.std(axis=0)
+
+
 def angle_to_rc(angle):
     x = np.cos(angle)
     y = np.sin(angle)
