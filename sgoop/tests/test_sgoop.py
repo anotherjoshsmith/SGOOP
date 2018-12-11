@@ -1,7 +1,7 @@
 import numpy as np
 from sgoop.sgoop import md_prob
 from sgoop.sgoop import bin_max_cal
-# from sgoop.sgoop import get_eigenvalues
+from sgoop.sgoop import get_eigenvalues
 # from sgoop.sgoop import rc_eval
 # from sgoop.sgoop import optimize_rc
 
@@ -56,7 +56,34 @@ def test_bin_max_cal():
 
 
 def test_get_eigenvalues():
-    assert True
+    binned = [0, 1, 2]
+    prob = [
+        0.4432692004460532,
+        1.3298076013381424,
+        2.216346002230199
+    ]
+    d = 1
+
+    # test with binned traj, no diffusivity
+    actual = get_eigenvalues(binned, prob, d, diffusivity=None)
+    expected = [
+        0,
+        0.2647557475646271,
+        0.6156877031058157,
+    ]
+    assert np.allclose(actual, expected)
+
+    # assume static diffusivity, no maxcal trajectory
+    actual = get_eigenvalues(None, prob, d, diffusivity=10)
+    expected = [
+        0,
+        2.6475574756462716,
+        6.156877031058157,
+    ]
+    assert np.allclose(actual, expected)
+
+    # return None when binned traj and diffusivity are both None
+    assert (get_eigenvalues(None, prob, d, diffusivity=None) is None)
 
 
 def test_rc_eval():
