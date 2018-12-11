@@ -3,7 +3,7 @@ from sgoop.sgoop import md_prob
 from sgoop.sgoop import bin_max_cal
 from sgoop.sgoop import get_eigenvalues
 from sgoop.sgoop import rc_eval
-# from sgoop.sgoop import optimize_rc
+from sgoop.sgoop import optimize_rc
 
 
 def test_md_prob():
@@ -105,7 +105,29 @@ def test_rc_eval():
     actual = rc_eval(rc, samples, sgoop_dict, weights=weights)
     expected = 0.0035751103510773745
     assert np.isclose(actual, expected)
-    
+
 
 def test_optimize_rc():
-    assert True
+    rc = np.array([0.3, 0.5, 0.8])
+    samples = np.array(
+        [[0, 1, 2],
+         [3, 4, 0],
+         [1, 2, 3]]
+    )
+    weights = [0.1, 0.3, 0.5]
+    sgoop_dict = {
+        'rc_bins': 3,
+        'wells': 2,
+        'd': 1,
+        'diffusivity': 10,
+    }
+
+    # quick test on optimization
+    np.random.seed(0)
+    actual = optimize_rc(rc, samples, sgoop_dict, niter=3).x
+    expected = [
+        0.18680609967559575,
+        0.4592501937877387,
+        0.867916342522949,
+    ]
+    assert np.allclose(actual, expected)
