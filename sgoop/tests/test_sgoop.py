@@ -1,9 +1,9 @@
 import numpy as np
 from sgoop.sgoop import md_prob
 from sgoop.sgoop import bin_max_cal
-from sgoop.sgoop import get_eigenvalues
-from sgoop.sgoop import rc_eval
-from sgoop.sgoop import optimize_rc
+# from sgoop.sgoop import get_eigenvalues
+# from sgoop.sgoop import rc_eval
+# from sgoop.sgoop import optimize_rc
 
 
 def test_md_prob():
@@ -37,7 +37,22 @@ def test_md_prob():
 
 
 def test_bin_max_cal():
-    assert True
+    rc = np.array([0.3, 0.5, 0.8])
+    samples = np.array(
+        [[0, 1, 2],
+         [3, 4, 0],
+         [1, 2, 3]]
+    )
+    grid = [2.1, 2.9, 3.7]
+
+    # performing binning with rc and mdtraj
+    actual = bin_max_cal(rc, samples, grid)
+    expected = [0, 1, 2]
+    assert np.allclose(actual, expected)
+
+    # performing binning with rc and mdtraj
+    assert (bin_max_cal(rc, None, grid) is None)
+    assert (bin_max_cal(None, samples, grid) is None)
 
 
 def test_get_eigenvalues():
