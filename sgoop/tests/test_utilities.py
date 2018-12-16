@@ -2,7 +2,7 @@ import numpy as np
 from sgoop.utilities import read_plumed_file
 from sgoop.utilities import reweight_ct
 from sgoop.utilities import calculate_sigma
-# from sgoop.utilities import angle_to_rc
+from sgoop.utilities import angle_to_rc
 
 
 def test_read_plumed_file(tmp_path):
@@ -56,4 +56,8 @@ def test_calculate_sigma():
 
 
 def test_angle_to_rc():
-    assert True
+    angle = np.pi / 2
+
+    actual = angle_to_rc(angle)
+    expected = [0, 1]
+    assert np.allclose(actual, expected)
