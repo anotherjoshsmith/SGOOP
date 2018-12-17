@@ -1,8 +1,10 @@
+
 import numpy as np
 import matplotlib
-matplotlib.use('agg')
 from sgoop.visualization import plot_spectral_gap
 from sgoop.visualization import plot_pmf
+
+matplotlib.use('agg')
 
 
 def test_plot_spectral_gap():
