@@ -114,7 +114,6 @@ def test_optimize_rc():
          [3, 4, 0],
          [1, 2, 3]]
     )
-    weights = [0.1, 0.3, 0.5]
     sgoop_dict = {
         'rc_bins': 3,
         'wells': 2,
