@@ -70,8 +70,11 @@ def find_closest_points(sequence, points):
 
 
 def avg_neighbor_transitions(sequence, num_neighbors):
-    transitions = np.abs(sequence[1:] - sequence[:-1]) <= num_neighbors
-    return np.sum(transitions) / (len(sequence) - 1)
+    transition_dist = np.abs(sequence[1:] - sequence[:-1])
+    neighbor_transitions = (
+        (transition_dist > 0) & (transition_dist <= num_neighbors)
+    )
+    return np.sum(neighbor_transitions) / (len(sequence) - 1)
 
 
 def probability_matrix(p, d):
