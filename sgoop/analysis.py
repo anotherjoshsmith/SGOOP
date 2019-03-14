@@ -116,11 +116,6 @@ def sorted_eigenvalues(matrix):
 
 
 def spectral_gap(eigen_values, wells):
-    eigen_exp = np.exp(-eigen_values)
-
+    eigen_exp = np.exp(-eigen_values)[eigen_values > 1e-10]
     gaps = eigen_exp[:-1] - eigen_exp[1:]
-
-    if np.shape(gaps)[0] >= wells:
-        return gaps[wells - 1]
-    else:
-        return 0
+    return gaps[wells - 1]
