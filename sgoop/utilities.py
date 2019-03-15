@@ -77,7 +77,8 @@ def reweight_ct(rbias, kt=2.5):
     """
     # ensure rbias is an ndarray
     rbias = np.array(rbias)
-    return np.exp(rbias / kt)
+    weight = np.exp(rbias / kt)
+    return weight / weight.sum()
 
 
 def calculate_sigma(md_traj, rc=None):
